@@ -1,0 +1,109 @@
+create schema hoge;
+
+create table hoge.tbl_a(
+    id integer not null,
+    name varchar not null,
+    flg boolean not null,
+    primary key (id)
+);
+
+create table hoge.tbl_b(
+    id uuid not null default gen_random_uuid(),
+    datetime timestamp not null DEFAULT CURRENT_TIMESTAMP,
+    num integer not null,
+    name varchar not null,
+    primary key (id)
+);
+
+CREATE OR REPLACE FUNCTION hoge.func_a()
+RETURNS TRIGGER AS $$
+DECLARE
+    arg1 INT;
+    arg2 TEXT;
+BEGIN
+    arg1 := NEW.id;  -- NEWレコードのidカラムの値をarg1に代入
+    arg2 := NEW.name;  -- NEWレコードのnameカラムの値をarg2に代入
+
+    INSERT INTO hoge.tbl_b (num, name) VALUES (arg1, arg2);
+    RETURN NEW;  -- トリガー関数がトリガーによって実行された行の状態を返す
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trig_a
+AFTER UPDATE OF flg ON hoge.tbl_a
+FOR EACH ROW
+WHEN (OLD.flg = true AND NEW.flg = false)
+EXECUTE FUNCTION hoge.func_a();  -- 引数を指定せずにトリガー関数を呼び出す
+
+insert into hoge.tbl_a (id, name, flg) values
+(1, 'a', true),
+(2, 'b', true),
+(3, 'c', true),
+(4, 'd', true),
+(5, 'e', true);
+
+select * from hoge.tbl_a
+ORDER BY id ASC;
+
+select * from hoge.tbl_b
+ORDER BY datetime ASC;
+
+update hoge.tbl_a SET flg = false where id = 3;
+
+
+
+参照元
+create database headquarters;
+
+{
+    "database": "headquarters",
+    "user": "postgres",
+    "password": "hoge",
+    "host": "127.0.0.1",
+    "port": 5432
+}
+
+create table hoge(
+    id uuid not null default gen_random_uuid(),
+    name varchar not null
+);
+
+insert into hoge (name) values
+('kenta'),
+('wataru');
+
+select * from hoge;
+
+参照する側
+create database store_4316;
+
+{
+    "database": "store_4316",
+    "user": "postgres",
+    "password": "hoge",
+    "host": "127.0.0.1",
+    "port": 5432
+}
+
+1. postgres_fdw拡張機能を有効にします。
+CREATE EXTENSION postgres_fdw;
+
+2. 外部データベースに接続するためのサーバーを作成します。
+CREATE SERVER headquarters_server
+FOREIGN DATA WRAPPER postgres_fdw
+OPTIONS (dbname 'headquarters', host '127.0.0.1', port '5432');
+
+3. 外部データベースへのユーザーマッピングを作成します。
+CREATE USER MAPPING FOR postgres
+SERVER headquarters_server
+OPTIONS (user 'postgres', password 'hoge');
+
+4. 外部テーブルを作成します。
+CREATE FOREIGN TABLE hoge_external (
+    id uuid,
+    name varchar
+)
+SERVER headquarters_server
+OPTIONS (table_name 'hoge');
+
+SELECT * FROM hoge_external;
