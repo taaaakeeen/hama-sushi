@@ -1,0 +1,234 @@
+/* はま寿司豊田高岡店のDB */
+create database store_4316;
+
+/* はま寿司各支店の注文システム */
+create schema order_system;
+
+/* postgres_fdw拡張機能を有効 */
+CREATE EXTENSION postgres_fdw;
+
+/* 外部データベースに接続するためのサーバーを作成 */
+CREATE SERVER headquarters_server
+FOREIGN DATA WRAPPER postgres_fdw
+OPTIONS (host '127.0.0.1', port '5432', dbname 'headquarters');
+
+/* 外部データベースへのユーザーマッピングを作成 */
+CREATE USER MAPPING FOR postgres
+SERVER headquarters_server
+OPTIONS (user 'postgres', password 'hoge');
+
+/* 商品(FDW) */
+create foreign table order_system.menus(
+    menu_id uuid,
+    menu_classification varchar,
+    menu_name varchar,
+    menu_price integer,
+    sale_flg boolean
+)
+SERVER headquarters_server
+OPTIONS (schema_name 'management_system', table_name 'menus');
+
+/* 商品を表示 */
+select * from order_system.menus;
+
+/* 支払方法(FDW) */
+CREATE FOREIGN TABLE order_system.payment_methods (
+    method_id bigserial not null,
+    method_name varchar not null
+)
+SERVER headquarters_server
+OPTIONS (schema_name 'management_system', table_name 'payment_methods');
+
+/* 支払方法を表示 */
+select * from order_system.payment_methods;
+
+/* 座席 */
+create table order_system.seats(
+    seat_id integer not null,
+    vacant_seat_flg boolean not null default true,
+    number_of_people integer not null default 0,
+    number_of_seats integer not null,
+    primary key (seat_id),
+    check (number_of_people <= number_of_seats)
+);
+
+/* 座席データ */
+insert into order_system.seats (seat_id, number_of_seats) values
+(1, 1),
+(2, 1),
+(3, 1),
+(4, 1),
+(5, 1),
+(6, 1),
+(7, 1),
+(8, 1),
+(9, 1),
+(10, 4),
+(11, 4),
+(12, 4);
+
+/* 座席情報 */
+select * from order_system.seats
+ORDER BY seat_id ASC;
+
+/* 顧客 */
+create table order_system.customers(
+    customer_id uuid not null default gen_random_uuid(),
+    entry_time timestamp not null DEFAULT CURRENT_TIMESTAMP,
+    number_of_people integer not null,
+    seat_id integer not null,
+    exit_time timestamp,
+    payment_price integer,
+    payment_method integer,
+    check_time timestamp,
+    primary key (customer_id)
+);
+
+/* 注文 */
+create table order_system.orders(
+    order_time timestamp not null default CURRENT_TIMESTAMP,
+    customer_id uuid not null,
+    menu_id uuid not null,
+    menu_price integer not null,
+    number_of_orders integer not null,
+    seat_id integer not null,
+    distributed_flg boolean not null default false,
+    received_flg boolean not null default false,
+    foreign key (customer_id) references order_system.customers(customer_id),
+    check (number_of_orders >= 1 AND number_of_orders <= 5)
+)
+PARTITION BY RANGE (order_time);
+
+/* 注文ひと月ごとのパーテション */
+CREATE TABLE order_system.orders_partition_2024_02
+PARTITION OF order_system.orders
+FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
+
+/* 顧客テーブルに顧客IDと座席IDをINSERT*/
+CREATE OR REPLACE FUNCTION order_system.welcome_func()
+RETURNS TRIGGER AS $$
+DECLARE
+    arg1 INT;
+    arg2 INT;
+BEGIN
+    arg1 := NEW.number_of_people; 
+    arg2 := NEW.seat_id; 
+
+    insert into order_system.customers (number_of_people, seat_id) values (arg1, arg2);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+/* 座席確定trig */
+CREATE TRIGGER welcome_trig
+AFTER UPDATE OF vacant_seat_flg ON order_system.seats
+FOR EACH ROW
+WHEN (OLD.vacant_seat_flg = true AND NEW.vacant_seat_flg = false)
+EXECUTE FUNCTION order_system.welcome_func();
+
+/* 顧客情報 */
+select * from order_system.customers
+ORDER BY customer_id ASC;
+
+/* 座席案内 */
+update order_system.seats
+SET vacant_seat_flg = false,
+number_of_people = 1
+where seat_id = 2;
+
+/* 顧客IDから座席番号を取得 */
+CREATE OR REPLACE FUNCTION order_system.get_seat_number(customer_id_in UUID)
+RETURNS INTEGER AS $$
+DECLARE
+    seat_id_out INTEGER;
+BEGIN
+    SELECT seat_id INTO seat_id_out FROM order_system.customers WHERE customer_id = customer_id_in;
+    RETURN seat_id_out;
+END;
+$$ LANGUAGE plpgsql;
+
+/* 商品IDから金額を取得 */
+CREATE OR REPLACE FUNCTION order_system.get_menu_price(menu_id_in uuid)
+RETURNS INTEGER AS $$
+DECLARE
+    menu_price_out INTEGER;
+BEGIN
+    SELECT menu_price INTO menu_price_out FROM order_system.menus WHERE menu_id = menu_id_in;
+    RETURN menu_price_out;
+END;
+$$ LANGUAGE plpgsql;
+
+/* 注文情報 */
+select * from order_system.orders
+ORDER BY seat_id ASC;
+
+/* 商品情報 */
+select * from order_system.menus
+
+/* 商品注文 */
+insert into order_system.orders (customer_id, menu_id, menu_price, number_of_orders, seat_id) values(
+    'af5a1e4b-3053-481c-8964-015896e12848', 
+    'f986ccbb-0893-422d-8100-b095b040d7e2', 
+    order_system.get_menu_price('f986ccbb-0893-422d-8100-b095b040d7e2'), 
+    2, 
+    order_system.get_seat_number('af5a1e4b-3053-481c-8964-015896e12848')
+);
+
+/* 商品注文 */
+insert into order_system.orders (customer_id, menu_id, menu_price, number_of_orders, seat_id) values(
+    'ea242def-968e-4030-998f-7288b22fc39b', 
+    'f986ccbb-0893-422d-8100-b095b040d7e2', 
+    order_system.get_menu_price('f986ccbb-0893-422d-8100-b095b040d7e2'), 
+    2, 
+    order_system.get_seat_number('ea242def-968e-4030-998f-7288b22fc39b')
+);
+
+/* {顧客ID}の注文金額合計 */
+SELECT SUM(o.number_of_orders * o.menu_price) AS total_order_amount
+FROM order_system.orders o
+WHERE o.customer_id = 'af5a1e4b-3053-481c-8964-015896e12848';
+
+/* orderテーブルの注文金額合計をcustomerテーブルのpayment_priceに */
+CREATE OR REPLACE FUNCTION order_system.please_check_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- 指定されたcustomer_idに関連する注文の合計金額を計算
+    SELECT SUM(o.number_of_orders * o.menu_price) INTO NEW.payment_price
+    FROM order_system.orders o
+    WHERE o.customer_id = NEW.customer_id;
+
+    -- 新しい合計金額をorder_system.customersテーブルのpayment_price列に設定
+    UPDATE order_system.customers
+    SET payment_price = NEW.payment_price
+    WHERE customer_id = NEW.customer_id;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+/* 顧客情報 */
+select * from order_system.customers
+ORDER BY customer_id ASC;
+
+/* 会計trig */
+CREATE TRIGGER please_check_trig
+AFTER UPDATE OF exit_time ON order_system.customers
+FOR EACH ROW
+WHEN (OLD.exit_time IS NULL AND NEW.exit_time IS NOT NULL) -- exit_timeが更新されたかどうかを確認
+EXECUTE FUNCTION order_system.please_check_func();
+
+/* 会計 */
+UPDATE order_system.customers
+SET exit_time = CURRENT_TIMESTAMP
+WHERE customer_id = 'af5a1e4b-3053-481c-8964-015896e12848';
+
+/* 会計 */
+UPDATE order_system.customers
+SET exit_time = CURRENT_TIMESTAMP
+WHERE customer_id = 'ea242def-968e-4030-998f-7288b22fc39b';
+
+/* 支払 */
+UPDATE order_system.customers
+SET check_time = CURRENT_TIMESTAMP,
+payment_method = 3
+WHERE customer_id = 'af5a1e4b-3053-481c-8964-015896e12848';

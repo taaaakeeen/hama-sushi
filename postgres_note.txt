@@ -1,0 +1,49 @@
+win+r -> sysdm.cpl -> 詳細設定 -> 環境変数 -> システム環境変数 -> Path -> 編集 -> 新規
+変数値 C:\Program Files\PostgreSQL\13\bin
+
+PostgreSQLのバージョン確認 psql -V
+
+
+win+r -> sysdm.cpl -> 詳細設定 -> 環境変数 -> ユーザー環境変数 -> 新規
+変数名 PGDATA
+変数値 C:\Program Files\PostgreSQL\13\data
+
+サーバーの起動 pg_ctl start
+サーバーの再起動 pg_ctl restart
+サーバーの停止 pg_ctl stop
+設定ファイルを再読込 pg_ctl reload
+サーバーの起動状況 pg_ctl status
+
+win+r
+services.msc
+
+
+postgreSQL接続
+psql -h localhost -p 5432 -U postgres
+
+データベース一覧
+\l
+
+postgreSQL切断
+\q
+
+DB接続
+\c store_4316
+
+スキーマ一覧
+\dn
+
+スキーマ一覧+アクセス権限
+\dn+
+
+テーブル一覧
+\dt
+
+スキーマのテーブル一覧
+\dt order_system.*
+
+テーブル中身
+\d orders
+
+スキーマのテーブル中身
+\d order_system.orders

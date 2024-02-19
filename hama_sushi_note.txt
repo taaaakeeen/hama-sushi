@@ -132,6 +132,7 @@ create table order_system.orders(
     order_time timestamp not null default CURRENT_TIMESTAMP,
     customer_id uuid not null,
     menu_id uuid not null,
+    menu_price integer not null,
     number_of_orders integer not null,
     seat_id integer not null,
     distributed_flg boolean not null default false,
@@ -139,7 +140,7 @@ create table order_system.orders(
     foreign key (customer_id) references order_system.customers(customer_id),
     check (number_of_orders >= 1 AND number_of_orders <= 5)
 )
-PARTITION BY RANGE (DATE_TRUNC('month', order_time));
+PARTITION BY RANGE (order_time);
 
 /* 支店の注文ひと月ごとのパーテション */
 CREATE TABLE order_system.orders_partition_2024_02
@@ -208,6 +209,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+/* 商品IDから金額を取得 */
+CREATE OR REPLACE FUNCTION order_system.get_menu_price(menu_id_in uuid)
+RETURNS INTEGER AS $$
+DECLARE
+    menu_price_out INTEGER;
+BEGIN
+    SELECT menu_price INTO menu_price_out FROM order_system.menus WHERE menu_id = menu_id_in;
+    RETURN menu_price_out;
+END;
+$$ LANGUAGE plpgsql;
+
 /* 注文情報 */
 select * from order_system.orders
 ORDER BY seat_id ASC;
@@ -261,4 +273,22 @@ SET check_time = CURRENT_TIMESTAMP,
 payment_method = 3
 WHERE customer_id = '51a40a00-eb7e-46c7-b349-6672eaba9923';
 
+/* 支店DBの複製DB */
+create database store_4316_replica;
 
+
+
+1. マスターサーバーの postgresql.conf ファイルを編集し、次の設定を有効にします。
+wal_level = replica
+max_wal_senders = 10
+
+2. マスターサーバーにレプリケーション用のユーザーを作成します。
+CREATE USER replication_user REPLICATION LOGIN CONNECTION LIMIT 5 ENCRYPTED PASSWORD 'your_password';
+
+3. レプリケーションスロットを作成し、リモートサーバーからのレプリケーションデータを保持します。
+SELECT * FROM pg_create_physical_replication_slot('replication_slot_name');
+
+4. レプリケーションスロットを使用してリモートサーバーを接続します。リモートサーバーの postgresql.conf ファイルと pg_hba.conf ファイルをマスターサーバーの設定と同様に編集します。
+
+5. レプリケーションスロットを使用してリモートサーバーを開始します。リモートサーバーで以下のコマンドを実行します。
+pg_basebackup -h master_host -D /path/to/data_directory -U replication_user -P -v -R -X stream

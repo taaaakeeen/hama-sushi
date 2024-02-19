@@ -1,0 +1,4 @@
+プライマリサーバ側の設定
+
+pg_ctl restart
+pg_ctl reload
