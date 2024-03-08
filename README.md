@@ -1,29 +1,22 @@
-1. James Madison
-2. James Monroe
-3. John Quincy Adams
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
+
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
 
 ---
 
-1. James Madison
-    - a
-    - b
-    - c
-2. James Monroe
-3. John Quincy Adams
-
-```
-cd /
-mkdir PostgreSQL
-cd PostgreSQL
-mkdir server_01
-mkdir server_02
-mkdir server_03
-mkdir server_04
-dir
-```
-
 # PostgreSQL基本機能の学習
-今まで開発はORMでCRUD処理を書いてたのでSQLやDBの機能エアプでした。  
+ORMでCRUD処理を書いてたのでSQLやDBの機能エアプでした。  
 回転寿司の座席案内->注文->会計を例にシステムを作成します。
 
 ## 目次
