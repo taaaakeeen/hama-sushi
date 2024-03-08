@@ -33,7 +33,7 @@ dir
 2. 環境構築
     - 2-1. 環境変数の設定
     - 2-2. クラスタの作成
-    - 2-3. postgresql.conf
+    - 2-3. postgresql.confの設定
     - 2-4. サービスの起動
 3. DBオブジェクト
     - 3-1. 基本操作
@@ -68,29 +68,23 @@ dir
 ### 2-1. 環境変数の設定
 psqlコマンドのパスを通します。
 
-ショートカットキーで"ファイル名を指定して実行"を起動
-
-```
-win+r 
-```
-
-sysdm.cpl -> OK
+#### win+r key -> sysdm.cpl -> OK
 
 <img src="img\2024-03-08 093211.png">
 
-詳細設定タブ -> 環境変数　
+#### 詳細設定 -> 環境変数　
 
 <img src="img\2024-03-08 093840.png">
 
-システム環境変数 -> Path -> 編集
+#### システム環境変数 -> Path -> 編集
 
 <img src="img\2024-03-08 094225.png">
 
-新規 -> "psql.exe"保存先のパスを入力 -> OK
+#### 新規 -> {"psql.exe"保存先のパス} -> OK
 
 <img src="img\2024-03-08 094543.png">
 
-psqlのバージョン確認コマンド字実行してパスが通ることを確認
+#### バージョン確認コマンド実行 -> パスが通ることを確認
 
 ```
 psql -V
@@ -101,7 +95,7 @@ psql -V
 ### 2-2. クラスタの作成
 1台のPCで複数のPostgreSQLサービスを稼働させます。
 
-クラスタ用のディレクトリを作成
+#### クラスタ用のディレクトリを作成
 
 ```
 cd /
@@ -116,7 +110,7 @@ dir
 
 <img src="img\2024-03-08 085815.png">
 
-クラスタを作成
+#### クラスタを作成
 
 ```
 initdb -U postgres -D C:\PostgreSQL\server_01
@@ -124,11 +118,31 @@ initdb -U postgres -D C:\PostgreSQL\server_02
 initdb -U postgres -D C:\PostgreSQL\server_03
 initdb -U postgres -D C:\PostgreSQL\server_04
 ```
+
 <img src="img\2024-03-08 101140.png">
 
-各クラスタのポート番号を設定
+### 2-3. postgresql.confの設定
+各クラスタのconfファイルを編集します
 
-C:\PostgreSQL\server_01\postgresql.conf
+- C:\Program Files\PostgreSQL\13\data\postgresql.con\postgresql.conf
+    - port = 5432
+    - shared_preload_libraries = 'postgres_fdw'
+- C:\PostgreSQL\server_01\postgresql.conf
+    - port = 5433
+    - shared_preload_libraries = 'postgres_fdw'
+    - wal_level = logical
+- C:\PostgreSQL\server_02\postgresql.conf
+    - port = 5434
+    - shared_preload_libraries = 'postgres_fdw'
+- C:\PostgreSQL\server_03\postgresql.conf
+    - port = 5435
+    - shared_preload_libraries = 'postgres_fdw'
+    - wal_level = logical
+- C:\PostgreSQL\server_04\postgresql.conf
+    - port = 5436
+    - shared_preload_libraries = 'postgres_fdw'
+
+#### ポート番号を設定
 
 ```
 port = 5433
@@ -136,30 +150,35 @@ port = 5433
 
 <img src="img\2024-03-08 101731.png">
 
-postgres_fdw拡張機能を有効にする
+#### FDWを有効にする
+
 ```
 shared_preload_libraries = 'postgres_fdw'
 ```
+
 <img src="img\2024-03-08 110013.png">
 
-server_02, 03, 04の"postgresql.conf"も同様に編集
+#### レプリケーションを有効にする
 
-
-C:\Program Files\PostgreSQL\13\data\postgresql.con\postgresql.conf
 ```
-shared_preload_libraries = 'postgres_fdw'
+wal_level = logical
 ```
 
+<img src="img\2024-03-08 151752.png">
 
-services.msc
+### 2-4. サービスの起動
+confファイルを変更したのでシステムを再起動します
+
+#### win+r key -> services.msc -> OK
 
 <img src="img\2024-03-08 120656.png">
 
-postgresを再起動します
+#### postgresを再起動します
+
 <img src="img\2024-03-08 120845.png">
 
+#### クラスタのサービスを起動させます
 
-### サービスの起動
 ```
 pg_ctl -D C:\PostgreSQL\server_01 -l C:\PostgreSQL\server_01\server_01.log start
 pg_ctl -D C:\PostgreSQL\server_02 -l C:\PostgreSQL\server_02\server_02.log start
@@ -167,8 +186,9 @@ pg_ctl -D C:\PostgreSQL\server_03 -l C:\PostgreSQL\server_03\server_03.log start
 pg_ctl -D C:\PostgreSQL\server_04 -l C:\PostgreSQL\server_04\server_04.log start
 ```
 
-確認
 <img src="img\2024-03-08 102656.png">
+
+#### サービスが起動していることを確認
 
 ```
 netstat -ano -o | find "5433"
