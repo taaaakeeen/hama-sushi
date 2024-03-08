@@ -23,8 +23,8 @@ dir
 ```
 
 # PostgreSQL基本機能の学習
-今までの開発はORMでCRUD処理を書いてたのでSQLやDBの機能エアプでした。  
-回転寿司の座席案内->注文->退店を例にシステムを作成します。
+今まで開発はORMでCRUD処理を書いてたのでSQLやDBの機能エアプでした。  
+回転寿司の座席案内->注文->会計を例にシステムを作成します。
 
 ## 目次
 1. システム構成
@@ -177,7 +177,7 @@ confファイルを変更したのでシステムを再起動します
 
 <img src="img\2024-03-08 120845.png">
 
-#### クラスタのサービスを起動させます
+#### クラスタのサービスを起動します
 
 ```
 pg_ctl -D C:\PostgreSQL\server_01 -l C:\PostgreSQL\server_01\server_01.log start
@@ -199,7 +199,12 @@ netstat -ano -o | find "5436"
 
 <img src="img\2024-03-08 102803.png">
 
-## 3. DBオブジェクトの作成
+## 3. DBオブジェクト
+
+### 3-1. 基本操作
+
+
+### 3-2. 本社DBの作成
 
 本店DBサーバにアクセス
 ```
@@ -280,7 +285,7 @@ select * from management_system.payment_methods;
 ```
 <img src="img\2024-03-08 104616.png">
 
-### FDW
+### 3-3. 豊田高岡店DBの作成
 
 FDWで外部DBのテーブルを参照します
 
@@ -353,7 +358,7 @@ OPTIONS (schema_name 'management_system', table_name 'payment_methods');
 全ての支払方法を表示
 select * from order_system.payment_methods;
 
-### テーブル
+
 支店の座席
 ```
 create table order_system.seats(
@@ -380,7 +385,7 @@ create table order_system.customers(
 );
 ```
 
-### パーテション
+
 支店の注文
 ```
 create table order_system.orders(
@@ -405,12 +410,11 @@ PARTITION OF order_system.orders
 FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
 ```
 
-### インデックス
-```
-CREATE INDEX idx_customer_id ON order_system.orders(customer_id);
-```
+### 3-4. 豊田朝日店DBの作成
 
-### トリガ関数
+
+
+### 3-5. 座席案内スクリプトの作成
 顧客テーブルに顧客IDと座席IDをINSERT
 ```
 CREATE OR REPLACE FUNCTION order_system.welcome_func()
@@ -474,6 +478,8 @@ number_of_people = 2
 where seat_id = 3;
 ```
 
+### 3-6. 注文スクリプトの作成
+
 顧客IDから座席番号を取得
 ```
 CREATE OR REPLACE FUNCTION order_system.get_seat_number(customer_id_in UUID)
@@ -517,6 +523,7 @@ insert into order_system.orders (customer_id, menu_id, number_of_orders, seat_id
 ('51a40a00-eb7e-46c7-b349-6672eaba9923', 'f986ccbb-0893-422d-8100-b095b040d7e2', 2, order_system.get_seat_number('51a40a00-eb7e-46c7-b349-6672eaba9923'));
 ```
 
+### 3-7. 会計スクリプトの作成
 {顧客ID}の注文金額合計
 ```
 SELECT SUM(o.number_of_orders * m.menu_price) AS total_order_amount
@@ -620,32 +627,26 @@ CALL add_item('9c398f32-e088-4b0a-bf6e-b4a623b516ed', '肉まん', 14);
 select * from items;
 ```
 
-## 4. ロジカルレプリケーション
+## 4. レプリケーション
 
-### Publication側の設定
-postgresql.conf
-```
-wal_level = logical
-```
+### 4-1. Publicationの設定
 
-<img src="img\2024-03-08 151752.png">
-
-パブリケーション作成時にレプリケーション対象テーブル
+#### パブリケーション作成時にレプリケーション対象テーブルと適用範囲を指定する
 ```
 CREATE PUBLICATION my_publication FOR ALL TABLES;
 ```
 
-レプリケーション対象テーブルの確認
+#### レプリケーション対象テーブルの確認
 ```
 SELECT * FROM pg_publication_tables;
 ```
 
-レプリケーション対象操作の確認
+#### レプリケーション対象操作の確認
 ```
 SELECT * FROM pg_publication;
 ```
 
-### Subsucliction側の設定
+### 4-2. Subsuclictionの設定
 
 ```
 create database store_4316_replica
@@ -669,13 +670,11 @@ create table order_system.seats(
 );
 ```
 
-サブスクリプション作成時にパブリッシャーへの接続情報とパブリケーションを指定
+#### サブスクリプション作成時にパブリッシャーへの接続情報とパブリケーションを指定
 ```
 CREATE SUBSCRIPTION my_subscriction CONNECTION 'host=localhost port=5433 user=postgres dbname=store_4316 password=hoge' PUBLICATION my_publication;
 ```
 
-```
-```
 
 
 
@@ -705,3 +704,7 @@ CREATE SUBSCRIPTION my_subscriction CONNECTION 'host=localhost port=5433 user=po
 ### restore
 
 
+### インデックス
+```
+CREATE INDEX idx_customer_id ON order_system.orders(customer_id);
+```
