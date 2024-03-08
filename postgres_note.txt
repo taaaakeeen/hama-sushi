@@ -47,3 +47,12 @@ DB接続
 
 スキーマのテーブル中身
 \d order_system.orders
+
+CREATE DATABASE headquarters
+    WITH
+    OWNER = postgres
+    ENCODING = 'UTF8'
+    CONNECTION LIMIT = -1
+    IS_TEMPLATE = False;
+
+pg_ctl restart -D "C:\Program Files\PostgreSQL\13\data"

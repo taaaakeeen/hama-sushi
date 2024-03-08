@@ -138,7 +138,7 @@ create table order_system.orders(
     distributed_flg boolean not null default false,
     received_flg boolean not null default false,
     foreign key (customer_id) references order_system.customers(customer_id),
-    check (number_of_orders >= 1 AND number_of_orders <= 5)
+    check (number_of_orders >= 1 AND number_of_orders <= 4)
 )
 PARTITION BY RANGE (order_time);
 

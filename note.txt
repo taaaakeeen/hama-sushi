@@ -1,26 +1,5 @@
-1. James Madison
-2. James Monroe
-3. John Quincy Adams
-
----
-
-1. James Madison
-    - a
-    - b
-    - c
-2. James Monroe
-3. John Quincy Adams
-
-```
-cd /
-mkdir PostgreSQL
-cd PostgreSQL
-mkdir server_01
-mkdir server_02
-mkdir server_03
-mkdir server_04
-dir
-```
+4123
+4316
 
 # PostgreSQL基本機能の学習
 今までの開発はORMでCRUD処理を書いてたのでSQLやDBの機能エアプでした。  
@@ -28,45 +7,30 @@ dir
 
 ## 目次
 1. システム構成
-    - 1-1. 構成図
-    - 1-2. ER図
+    - 構成図
+    - ER図
 2. 環境構築
-    - 2-1. 環境変数の設定
-    - 2-2. クラスタの作成
-    - 2-3. postgresql.conf
-    - 2-4. サービスの起動
-3. DBオブジェクト
-    - 3-1. 基本操作
-    - 3-2. 本社DBの作成
-    - 3-3. 豊田高岡店DBの作成
-    - 3-4. 豊田朝日店DBの作成
-    - 3-5. 座席案内スクリプトの作成
-    - 3-6. 注文スクリプトの作成
-    - 3-7. 会計スクリプトの作成
+    - 環境変数の設定
+    - クラスタの作成
+    - postgresql.conf
+    - サービスの起動
+3. オブジェクトの作成
+
 4. レプリケーション
-    - 4-1. Publicationの設定
-    - 4-2. Subsuclictionの設定
 5. CRUD処理
-    - 5-1. SELECT
-    - 5-2. INSERT
-    - 5-3. UPDATE
-    - 5-4. DELETE
 6. バックアップと修復
-    - 6-1. dump
-    - 6-2. restore
-7. パフォーマンス
-    - 7-1. INDEX
 
 ## 1. システム構成
 
-### 1-1. 構成図
+### 構成図
 
-### 1-2. ER図
+### ER図
 
 ## 2. 環境構築
 
 ### 2-1. 環境変数の設定
-psqlコマンドのパスを通します。
+
+psqlコマンドのパスを通します
 
 ショートカットキーで"ファイル名を指定して実行"を起動
 
@@ -74,23 +38,23 @@ psqlコマンドのパスを通します。
 win+r 
 ```
 
-sysdm.cpl -> OK
+- sysdm.cpl -> OK
 
 <img src="img\2024-03-08 093211.png">
 
-詳細設定タブ -> 環境変数　
+- 詳細設定タブ -> 環境変数　
 
 <img src="img\2024-03-08 093840.png">
 
-システム環境変数 -> Path -> 編集
+- システム環境変数 -> Path -> 編集
 
 <img src="img\2024-03-08 094225.png">
 
-新規 -> "psql.exe"保存先のパスを入力 -> OK
+- 新規 -> "psql.exe"保存先のパスを入力 -> OK
 
 <img src="img\2024-03-08 094543.png">
 
-psqlのバージョン確認コマンド字実行してパスが通ることを確認
+- psqlコマンドのパスが通ることを確認
 
 ```
 psql -V
@@ -99,9 +63,10 @@ psql -V
 <img src="img\2024-03-08 095048.png">
 
 ### 2-2. クラスタの作成
-1台のPCで複数のPostgreSQLサービスを稼働させます。
 
-クラスタ用のディレクトリを作成
+1台のPCで複数のPostgreSQLサービスを稼働させます
+
+- クラスタ用のディレクトリを作成
 
 ```
 cd /
@@ -116,7 +81,7 @@ dir
 
 <img src="img\2024-03-08 085815.png">
 
-クラスタを作成
+- クラスタを作成
 
 ```
 initdb -U postgres -D C:\PostgreSQL\server_01
@@ -129,7 +94,6 @@ initdb -U postgres -D C:\PostgreSQL\server_04
 各クラスタのポート番号を設定
 
 C:\PostgreSQL\server_01\postgresql.conf
-
 ```
 port = 5433
 ```
@@ -683,5 +647,3 @@ CREATE SUBSCRIPTION my_subscriction CONNECTION 'host=localhost port=5433 user=po
 ### dump
 
 ### restore
-
-
