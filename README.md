@@ -15,9 +15,8 @@
 
 ---
 
-# PostgreSQL基本機能の学習
-ORMでCRUD処理を書いてたのでSQLやDBの機能エアプでした。  
-回転寿司の座席案内->注文->会計を例にシステムを作成します。
+# PostgreSQL基本機能の学習  
+回転寿司の座席案内->商品注文->会計システムを作成します
 
 ## 目次
 1. システム構成
@@ -28,17 +27,26 @@ ORMでCRUD処理を書いてたのでSQLやDBの機能エアプでした。
     - 2-2. クラスタの作成
     - 2-3. postgresql.confの設定
     - 2-4. サービスの起動
-3. DBオブジェクト
-    - 3-1. 基本操作
-    - 3-2. 本社DBの作成
-    - 3-3. 豊田高岡店DBの作成
+3. DB作成
+    - 3-1. 本社DBの作成
+        - 3-1-1. テーブルの作成
+    - 3-2. 豊田高岡店DBの作成
+        - 3-2-1. テーブルの作成
+        - 3-2-2. 座席案内スクリプトの作成
+        - 3-2-3. 注文スクリプトの作成
+        - 3-2-4. 会計スクリプトの作成
+    - 3-3. 豊田高岡店DBのレプリケーション設定
+        - 3-3-1. Publication設定
+        - 3-3-2. Subsucliction設定
     - 3-4. 豊田朝日店DBの作成
-    - 3-5. 座席案内スクリプトの作成
-    - 3-6. 注文スクリプトの作成
-    - 3-7. 会計スクリプトの作成
-4. レプリケーション
-    - 4-1. Publicationの設定
-    - 4-2. Subsuclictionの設定
+        - 3-4-1. テーブルの作成
+        - 3-4-2. 座席案内スクリプトの作成
+        - 3-4-3. 注文スクリプトの作成
+        - 3-4-4. 会計スクリプトの作成
+    - 3-5. 豊田朝日店DBのレプリケーション設定
+        - 3-5-1. Publication設定
+        - 3-5-2. Subsucliction設定
+4. 基本操作
 5. CRUD処理
     - 5-1. SELECT
     - 5-2. INSERT
@@ -47,8 +55,19 @@ ORMでCRUD処理を書いてたのでSQLやDBの機能エアプでした。
 6. バックアップと修復
     - 6-1. dump
     - 6-2. restore
-7. パフォーマンス
+7. パフォーマンスとチューニング
     - 7-1. INDEX
+    - 7-2. 実行計画
+8. 外部テーブル参照
+    - 8-1. FDW
+    - 8-2. 外部キー制約
+9. テーブルのパーティショニング
+    - 9-1. 範囲パーティション
+    - 9-2. リストパーティション
+10. オブジェクトリストの作成
+    - 10-1. 
+11. データの型
+    - 11-1. 
 
 ## 1. システム構成
 
@@ -56,28 +75,65 @@ ORMでCRUD処理を書いてたのでSQLやDBの機能エアプでした。
 
 ### 1-2. ER図
 
+- menues 商品テーブル
+    - menu_id 商品ID
+    - menu_classification 商品カテゴリ
+    - menu_name 商品名
+    - menu_price 商品価格
+    - sale_flg 期間限定商品
+
+- paypent_methods 支払方法テーブル
+    - payment_method_id 支払方法ID
+    - payment_method_name 支払方法
+
+- seats 座席テーブル
+    - seat_id 座席ID
+    - vacant_seat_flg 空席フラグ
+    - number_of_people 顧客人数
+    - number_of_seats 座席数
+
+- customers 顧客テーブル
+    - customer_id 顧客ID
+    - entry_time 入店日時
+    - number_of_people 
+    - seat_id 座席ID
+    - exit_time 退店日時
+    - payment_price 支払金額
+    - payment_method 支払方法
+    - check_time 支払日時
+
+- orders 注文テーブル
+    - order_time 注文日時
+    - customer_id 顧客ID
+    - menu_id 商品ID
+    - menu_price 商品価格
+    - number_of_orders 注文数量
+    - seat_id 座席ID
+    - distributed_flg 注文中フラグ
+    - received_flg 提供済フラグ
+
 ## 2. 環境構築
 
 ### 2-1. 環境変数の設定
-psqlコマンドのパスを通します。
+psqlコマンドのパスを通します
 
-#### win+r key -> sysdm.cpl -> OK
+1. win+r key -> sysdm.cpl -> OK
 
 <img src="img\2024-03-08 093211.png">
 
-#### 詳細設定 -> 環境変数　
+2. 詳細設定 -> 環境変数
 
 <img src="img\2024-03-08 093840.png">
 
-#### システム環境変数 -> Path -> 編集
+3. システム環境変数 -> Path -> 編集
 
 <img src="img\2024-03-08 094225.png">
 
-#### 新規 -> {"psql.exe"保存先のパス} -> OK
+4. 新規 -> {"psql.exe"保存先のパス} -> OK
 
 <img src="img\2024-03-08 094543.png">
 
-#### バージョン確認コマンド実行 -> パスが通ることを確認
+5. バージョン確認コマンド実行 -> パスが通ることを確認
 
 ```
 psql -V
@@ -86,9 +142,9 @@ psql -V
 <img src="img\2024-03-08 095048.png">
 
 ### 2-2. クラスタの作成
-1台のPCで複数のPostgreSQLサービスを稼働させます。
+PC1台で複数のPostgreSQLサービスを稼働させます
 
-#### クラスタ用のディレクトリを作成
+1. クラスタ用のディレクトリを作成
 
 ```
 cd /
@@ -103,7 +159,7 @@ dir
 
 <img src="img\2024-03-08 085815.png">
 
-#### クラスタを作成
+2. クラスタを作成
 
 ```
 initdb -U postgres -D C:\PostgreSQL\server_01
@@ -117,7 +173,7 @@ initdb -U postgres -D C:\PostgreSQL\server_04
 ### 2-3. postgresql.confの設定
 各クラスタのconfファイルを編集します
 
-- C:\Program Files\PostgreSQL\13\data\postgresql.con\postgresql.conf
+- C:\Program Files\PostgreSQL\13\data\postgresql.conf
     - port = 5432
     - shared_preload_libraries = 'postgres_fdw'
 - C:\PostgreSQL\server_01\postgresql.conf
@@ -135,7 +191,9 @@ initdb -U postgres -D C:\PostgreSQL\server_04
     - port = 5436
     - shared_preload_libraries = 'postgres_fdw'
 
-#### ポート番号を設定
+---
+
+1. ポート番号を設定
 
 ```
 port = 5433
@@ -143,7 +201,7 @@ port = 5433
 
 <img src="img\2024-03-08 101731.png">
 
-#### FDWを有効にする
+2. FDWを有効にする
 
 ```
 shared_preload_libraries = 'postgres_fdw'
@@ -151,7 +209,7 @@ shared_preload_libraries = 'postgres_fdw'
 
 <img src="img\2024-03-08 110013.png">
 
-#### レプリケーションを有効にする
+3. レプリケーションを有効にする
 
 ```
 wal_level = logical
@@ -162,15 +220,15 @@ wal_level = logical
 ### 2-4. サービスの起動
 confファイルを変更したのでシステムを再起動します
 
-#### win+r key -> services.msc -> OK
+1. win+r key -> services.msc -> OK
 
 <img src="img\2024-03-08 120656.png">
 
-#### postgresを再起動します
+2. postgresを再起動します
 
 <img src="img\2024-03-08 120845.png">
 
-#### クラスタのサービスを起動します
+3. クラスタのサービスを起動します
 
 ```
 pg_ctl -D C:\PostgreSQL\server_01 -l C:\PostgreSQL\server_01\server_01.log start
@@ -181,7 +239,7 @@ pg_ctl -D C:\PostgreSQL\server_04 -l C:\PostgreSQL\server_04\server_04.log start
 
 <img src="img\2024-03-08 102656.png">
 
-#### サービスが起動していることを確認
+4. サービスが起動していることを確認
 
 ```
 netstat -ano -o | find "5433"
@@ -192,33 +250,38 @@ netstat -ano -o | find "5436"
 
 <img src="img\2024-03-08 102803.png">
 
-## 3. DBオブジェクト
+## 3. DB作成
 
-### 3-1. 基本操作
+### 3-1. 本社DBの作成
 
+#### 3-1-1. テーブルの作成
 
-### 3-2. 本社DBの作成
+1. 本社DBサーバにアクセス
 
-本店DBサーバにアクセス
 ```
 psql -h localhost -p 5432 -U postgres
 ```
-本店のDBを作成
+
+3. 本社DBを作成
+
 ```
 create database headquarters;
 ```
 
-DB接続
+3. DB接続
+
 ```
 \c headquarters
 ```
 
-はま寿司本部の管理部門スキーマを作成
+4. 本社の管理部門スキーマを作成
+
 ```
 create schema management_system;
 ```
 
-はま寿司本部が管理するメニューのテーブルを作成
+5. 商品テーブルを作成
+
 ```
 create table management_system.menus(
     menu_id uuid not null default gen_random_uuid(),
@@ -229,7 +292,9 @@ create table management_system.menus(
     primary key (menu_id)
 );
 ```
-メニュー情報をINSERT
+
+6. 商品情報をINSERT
+
 ```
 insert into management_system.menus (menu_classification, menu_name, menu_price, sale_flg) values
 ('LIMITED MENU', 'みなみまぐろ中とろ', 100, true),
@@ -250,77 +315,94 @@ insert into management_system.menus (menu_classification, menu_name, menu_price,
 ('DESERT DRINK', 'フランス直輸入濃厚ガトーショコラ', 200, true),
 ('DESERT DRINK', '波照間黒糖のわらびもち', 100, true);
 ```
-全ての商品を表示
+
+7. 全ての商品を確認
+
 ```
 select * from management_system.menus;
 ```
+
 <img src="img\2024-03-08 104133.png">
-支払方法テーブル作成
+
+8. 支払方法テーブルを作成
 
 ```
 create table management_system.payment_methods (
-    method_id SERIAL not null,
-    method_name varchar not null,
-    primary key (method_id)
+    payment_method_id SERIAL not null,
+    payment_method_name varchar not null,
+    primary key (payment_method_id)
 );
 ```
-対応可能な支払方法
+
+9. 対応可能な支払方法をINSERT
+
 ```
-INSERT INTO management_system.payment_methods (method_name) VALUES 
+INSERT INTO management_system.payment_methods (payment_method_name) VALUES 
 ('現金'),
 ('クレジットカード'),
 ('楽天ペイ');
 ```
 
-取り扱い支払方法一覧
+10. 対応可能な支払方法を確認
+
 ```
 select * from management_system.payment_methods;
 ```
+
 <img src="img\2024-03-08 104616.png">
 
-### 3-3. 豊田高岡店DBの作成
+### 3-2. 豊田高岡店DBの作成
 
-FDWで外部DBのテーブルを参照します
+#### 3-2-1. テーブルの作成
 
-高岡店のDBサーバにアクセス
+1. 高岡店のDBサーバにアクセス
+
 ```
 psql -h localhost -p 5433 -U postgres
 ```
-豊田高岡店のDBを作成
+
+2. 高岡店のDBを作成
+
 ```
 create database store_4316;
 ```
 
-DB接続
+3. DB接続
+
 ```
 \c store_4316
 ```
 
-注文スキーマ作成
+4. 注文スキーマ作成
+
 ```
 create schema order_system;
 ```
 
-postgres_fdw拡張機能を有効
+5. postgres_fdw拡張機能を有効
+
 ```
 CREATE EXTENSION postgres_fdw;
 ```
 
-外部データベースに接続するためのサーバーを作成
+6. 外部DB接続用のサーバーを作成
+
 ```
 CREATE SERVER headquarters_server
 FOREIGN DATA WRAPPER postgres_fdw
 OPTIONS (host '127.0.0.1', port '5432', dbname 'headquarters');
 ```
 
-外部データベースへのユーザーマッピングを作成
+7. 外部DBのマッピングを作成
+
 ```
 CREATE USER MAPPING FOR postgres
 SERVER headquarters_server
 OPTIONS (user 'postgres', password 'hoge');
 ```
 
-外部テーブルを作成
+8. 外部DBを参照する商品テーブルを作成
+
 ```
 create foreign table order_system.menus(
     menu_id uuid,
@@ -333,26 +415,31 @@ SERVER headquarters_server
 OPTIONS (schema_name 'management_system', table_name 'menus');
 ```
 
-全ての商品を表示
+9. 全ての商品を確認
+
 ```
 select * from order_system.menus;
 ```
 
-支払方法を参照
+10. 外部DBを参照する支払方法テーブルを作成
+
 ```
 CREATE FOREIGN TABLE order_system.payment_methods (
-    method_id bigserial not null,
-    method_name varchar not null
+    payment_method_id bigserial not null,
+    payment_method_name varchar not null
 )
 SERVER headquarters_server
 OPTIONS (schema_name 'management_system', table_name 'payment_methods');
 ```
 
-全ての支払方法を表示
+11. 全ての支払方法を確認
+
+```
 select * from order_system.payment_methods;
+```
 
+12. 支店の座席テーブルを作成
 
-支店の座席
 ```
 create table order_system.seats(
     seat_id integer not null,
@@ -363,7 +450,33 @@ create table order_system.seats(
 );
 ```
 
-支店の顧客
+13. 支店の座席情報をINSERT
+
+```
+insert into order_system.seats (seat_id, number_of_seats) values
+(1, 1),
+(2, 1),
+(3, 1),
+(4, 1),
+(5, 1),
+(6, 1),
+(7, 1),
+(8, 1),
+(9, 1),
+(10, 6),
+(11, 6),
+(12, 6);
+```
+
+14. 座席情報を確認
+
+```
+select * from order_system.seats
+ORDER BY seat_id ASC;
+```
+
+15. 支店の顧客テーブルを作成
+
 ```
 create table order_system.customers(
     customer_id uuid not null default gen_random_uuid(),
@@ -374,12 +487,13 @@ create table order_system.customers(
     payment_price integer,
     payment_method integer,
     check_time timestamp,
-    primary key (customer_id)
+    primary key (customer_id),
+    foreign key (seat_id) references order_system.seats(seat_id)
 );
 ```
 
+16. 支店の注文テーブルを作成
 
-支店の注文
 ```
 create table order_system.orders(
     order_time timestamp not null default CURRENT_TIMESTAMP,
@@ -391,24 +505,24 @@ create table order_system.orders(
     distributed_flg boolean not null default false,
     received_flg boolean not null default false,
     foreign key (customer_id) references order_system.customers(customer_id),
+    foreign key (seat_id) references order_system.seats(seat_id),
     check (number_of_orders >= 1 AND number_of_orders <= 4)
 )
 PARTITION BY RANGE (order_time);
 ```
 
+17. 支店の注文ひと月ごとのパーテションを作成
+
 ```
-/* 支店の注文ひと月ごとのパーテション */
-CREATE TABLE order_system.orders_partition_2024_02
+CREATE TABLE order_system.orders_partition_2024_03
 PARTITION OF order_system.orders
-FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
+FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
 ```
 
-### 3-4. 豊田朝日店DBの作成
+#### 3-2-2. 座席案内スクリプトの作成
 
+1. 顧客テーブルに顧客IDと座席IDをINSERTするトリガ関数
 
-
-### 3-5. 座席案内スクリプトの作成
-顧客テーブルに顧客IDと座席IDをINSERT
 ```
 CREATE OR REPLACE FUNCTION order_system.welcome_func()
 RETURNS TRIGGER AS $$
@@ -425,7 +539,8 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-選択した座席をFALSE
+2. 空席フラグがtrueからfalseになると発動するトリガ
+
 ```
 CREATE TRIGGER welcome_trig
 AFTER UPDATE OF vacant_seat_flg ON order_system.seats
@@ -434,46 +549,32 @@ WHEN (OLD.vacant_seat_flg = true AND NEW.vacant_seat_flg = false)
 EXECUTE FUNCTION order_system.welcome_func();
 ```
 
-座席情報をINSERT
+3. 座席案内AppがseatsテーブルをUPDATE
+
 ```
-insert into order_system.seats (seat_id, number_of_seats) values
-(1, 1),
-(2, 1),
-(3, 1),
-(4, 1),
-(5, 1),
-(6, 1),
-(7, 1),
-(8, 1),
-(9, 1),
-(10, 1),
-(11, 1),
-(12, 1);
+update order_system.seats
+SET vacant_seat_flg = false,
+number_of_people = 4
+where seat_id = 10;
 ```
 
-座席情報
+4. 座席の状態を確認
+
 ```
 select * from order_system.seats
 ORDER BY seat_id ASC;
 ```
 
-顧客情報
+5. 顧客テーブルを確認
 ```
 select * from order_system.customers
-ORDER BY customer_id ASC;
+ORDER BY entry_time ASC;
 ```
 
-座席と人数を変更
-```
-update order_system.seats
-SET vacant_seat_flg = false,
-number_of_people = 2
-where seat_id = 3;
-```
+#### 3-2-3. 注文スクリプトの作成
 
-### 3-6. 注文スクリプトの作成
+1. 顧客IDから座席番号を取得する関数
 
-顧客IDから座席番号を取得
 ```
 CREATE OR REPLACE FUNCTION order_system.get_seat_number(customer_id_in UUID)
 RETURNS INTEGER AS $$
@@ -486,7 +587,8 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-商品IDから金額を取得
+2. 商品IDから金額を取得する関数
+
 ```
 CREATE OR REPLACE FUNCTION order_system.get_menu_price(menu_id_in uuid)
 RETURNS INTEGER AS $$
@@ -499,44 +601,56 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-注文情報
+3. 注文可能な商品一覧
+
+```
+select * from order_system.menus
+where sale_flg = true;
+```
+
+4. 商品注文Appで注文
+
+```
+insert into order_system.orders (customer_id, menu_id, menu_price, number_of_orders, seat_id) values(
+    '{customer_id}',
+    '{menu_id}',
+    order_system.get_menu_price('{menu_id}'),
+    2,
+    order_system.get_seat_number('{customer_id}')
+);
+```
+
+5. 注文状況を確認
+
 ```
 select * from order_system.orders
 ORDER BY seat_id ASC;
 ```
 
-商品情報
-```
-select * from order_system.menus
-```
+#### 3-2-4. 会計スクリプトの作成
 
-商品注文
-```
-insert into order_system.orders (customer_id, menu_id, number_of_orders, seat_id) values
-('51a40a00-eb7e-46c7-b349-6672eaba9923', 'f986ccbb-0893-422d-8100-b095b040d7e2', 2, order_system.get_seat_number('51a40a00-eb7e-46c7-b349-6672eaba9923'));
-```
+1. 注文金額合計を確認
 
-### 3-7. 会計スクリプトの作成
-{顧客ID}の注文金額合計
 ```
 SELECT SUM(o.number_of_orders * m.menu_price) AS total_order_amount
 FROM order_system.orders o
 JOIN order_system.menus m ON o.menu_id = m.menu_id
-WHERE o.customer_id = '51a40a00-eb7e-46c7-b349-6672eaba9923';
+WHERE o.customer_id = '{customer_id}';
 ```
 
-会計ボタン押す→exit_time→orderテーブルの注文金額合計をcustomerテーブルのpayment_priceに
+2. 注文金額を合計して顧客テーブルのpayment_priceをUPDATEするトリガ関数
+
 ```
 CREATE OR REPLACE FUNCTION order_system.please_check_func()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- 指定されたcustomer_idに関連する注文の合計金額を計算
+    -- customer_idに関連する注文の合計金額を計算
     SELECT SUM(o.number_of_orders * m.menu_price) INTO NEW.payment_price
     FROM order_system.orders o
     JOIN order_system.menus m ON o.menu_id = m.menu_id
     WHERE o.customer_id = NEW.customer_id;
 
-    -- 新しい合計金額をorder_system.customersテーブルのpayment_price列に設定
+    -- 合計金額をorder_system.customersテーブルのpayment_price列に設定
     UPDATE order_system.customers
     SET payment_price = NEW.payment_price
     WHERE customer_id = NEW.customer_id;
@@ -546,55 +660,674 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
+3. 顧客テーブルの退店時間がnullから更新されると発動するトリガ
+
 ```
 CREATE TRIGGER please_check_trig
 AFTER UPDATE OF exit_time ON order_system.customers
 FOR EACH ROW
-WHEN (OLD.exit_time IS NULL AND NEW.exit_time IS NOT NULL) -- exit_timeが更新されたかどうかを確認
+WHEN (OLD.exit_time IS NULL AND NEW.exit_time IS NOT NULL)
 EXECUTE FUNCTION order_system.please_check_func();
 ```
 
-会計ボタン押す→exit_time
+4. 商品注文Appで会計ボタン押す
+
 ```
 UPDATE order_system.customers
 SET exit_time = CURRENT_TIMESTAMP
-WHERE customer_id = '51a40a00-eb7e-46c7-b349-6672eaba9923';
+WHERE customer_id = '{customer_id}';
 ```
 
-レジでの支払
+5. 顧客テーブルを確認
+
+```
+select * from order_system.customers
+WHERE customer_id = '{customer_id}';
+```
+
+6. 楽天ペイで決済
+
 ```
 UPDATE order_system.customers
 SET check_time = CURRENT_TIMESTAMP,
 payment_method = 3
-WHERE customer_id = '51a40a00-eb7e-46c7-b349-6672eaba9923';
+WHERE customer_id = '{customer_id}';
 ```
 
-### VIEW
-```
-create view user_list as select user_id, user_name from table_a;
-```
+### 3-3 豊田高岡店DBのレプリケーション設定
+
+#### 3-3-1 Publication設定
+
+1. パブリッシャ側のDBに接続
 
 ```
-select * from user_list;
+psql -h 127.0.0.1 -p 5433 -U postgres -d store_4316
 ```
 
-```
-create view user_level_avg as select avg(user_level) from table_a;
-```
+2. レプリケーション対象テーブルと適用範囲を指定してパブリケーション作成
 
 ```
-select * from user_level_avg;
+CREATE PUBLICATION publication_all_tbl FOR ALL TABLES;
 ```
 
-```
-select avg(user_level) from table_a;
-```
+3. レプリケーション対象テーブルの確認
 
 ```
-select max(user_level), min(user_level) from table_a; 
+SELECT * FROM pg_publication_tables;
 ```
 
-### プロシージャ
+4. レプリケーション対象操作の確認
+
+```
+SELECT * FROM pg_publication;
+```
+
+#### 3-3-2. Subsucliction設定
+
+1. サブスクライバ側のDBに接続
+
+```
+psql -h 127.0.0.1 -p 5434 -U postgres
+```
+
+2. レプリケーション用のデータベース作成
+
+```
+create database store_4316_replica;
+```
+
+3. レプリケーション用のデータベースに接続
+
+```
+\c store_4316_replica
+```
+
+4. レプリケーション用のスキーマ作成
+
+```
+create schema order_system;
+```
+
+5. postgres_fdw拡張機能を有効
+
+```
+CREATE EXTENSION postgres_fdw;
+```
+
+6. 外部DB接続用のサーバーを作成
+
+```
+CREATE SERVER headquarters_server
+FOREIGN DATA WRAPPER postgres_fdw
+OPTIONS (host '127.0.0.1', port '5432', dbname 'headquarters');
+```
+
+7. 外部DBのマッピングを作成
+
+```
+CREATE USER MAPPING FOR postgres
+SERVER headquarters_server
+OPTIONS (user 'postgres', password 'hoge');
+```
+
+8. 外部DBを参照する商品テーブルを作成
+
+```
+create foreign table order_system.menus(
+    menu_id uuid,
+    menu_classification varchar,
+    menu_name varchar,
+    menu_price integer,
+    sale_flg boolean
+)
+SERVER headquarters_server
+OPTIONS (schema_name 'management_system', table_name 'menus');
+```
+
+9. 外部DBを参照する支払方法テーブルを作成
+
+```
+CREATE FOREIGN TABLE order_system.payment_methods (
+    payment_method_id bigserial not null,
+    payment_method_name varchar not null
+)
+SERVER headquarters_server
+OPTIONS (schema_name 'management_system', table_name 'payment_methods');
+```
+
+10. 支店の座席テーブルを作成
+
+```
+create table order_system.seats(
+    seat_id integer not null,
+    vacant_seat_flg boolean not null default true,
+    number_of_people integer not null default 0,
+    number_of_seats integer not null,
+    primary key (seat_id)
+);
+```
+
+11. 支店の顧客テーブルを作成
+
+```
+create table order_system.customers(
+    customer_id uuid not null default gen_random_uuid(),
+    entry_time timestamp not null DEFAULT CURRENT_TIMESTAMP,
+    number_of_people integer not null,
+    seat_id integer not null,
+    exit_time timestamp,
+    payment_price integer,
+    payment_method integer,
+    check_time timestamp,
+    primary key (customer_id),
+    foreign key (seat_id) references order_system.seats(seat_id)
+);
+```
+
+12. 支店の注文テーブルを作成
+
+```
+create table order_system.orders(
+    order_time timestamp not null default CURRENT_TIMESTAMP,
+    customer_id uuid not null,
+    menu_id uuid not null,
+    menu_price integer not null,
+    number_of_orders integer not null,
+    seat_id integer not null,
+    distributed_flg boolean not null default false,
+    received_flg boolean not null default false,
+    foreign key (customer_id) references order_system.customers(customer_id),
+    foreign key (seat_id) references order_system.seats(seat_id),
+    check (number_of_orders >= 1 AND number_of_orders <= 4)
+)
+PARTITION BY RANGE (order_time);
+```
+
+13. 支店の注文ひと月ごとのパーテションを作成
+
+```
+CREATE TABLE order_system.orders_partition_2024_03
+PARTITION OF order_system.orders
+FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
+```
+
+14. パブリッシャーへの接続情報とパブリケーションを指定してサブスクリプション作成
+
+```
+CREATE SUBSCRIPTION subscriction_all_tbl CONNECTION 'host=localhost port=5433 user=postgres dbname=store_4316 password=hoge' PUBLICATION publication_all_tbl;
+```
+
+15. 座席テーブルがパブリッシャ側の座席テーブルと同じ状態になっていることを確認
+
+```
+select * from order_system.seats;
+```
+
+### 3-4. 豊田朝日店DBの作成
+
+高岡店とオブジェクトの構造は同じです
+
+#### 3-4-1. テーブルの作成
+
+1. 朝日店のDBサーバにアクセス
+
+```
+psql -h localhost -p 5435 -U postgres
+```
+
+2. 朝日店のDBを作成
+
+```
+create database store_4123;
+```
+
+3. DB接続
+
+```
+\c store_4123
+```
+
+4. 注文スキーマ作成
+
+```
+create schema order_system;
+```
+
+5. postgres_fdw拡張機能を有効
+
+```
+CREATE EXTENSION postgres_fdw;
+```
+
+6. 外部DB接続用のサーバーを作成
+
+```
+CREATE SERVER headquarters_server
+FOREIGN DATA WRAPPER postgres_fdw
+OPTIONS (host '127.0.0.1', port '5432', dbname 'headquarters');
+```
+
+7. 外部DBのマッピングを作成
+
+```
+CREATE USER MAPPING FOR postgres
+SERVER headquarters_server
+OPTIONS (user 'postgres', password 'hoge');
+```
+
+8. 外部DBを参照する商品テーブルを作成
+
+```
+create foreign table order_system.menus(
+    menu_id uuid,
+    menu_classification varchar,
+    menu_name varchar,
+    menu_price integer,
+    sale_flg boolean
+)
+SERVER headquarters_server
+OPTIONS (schema_name 'management_system', table_name 'menus');
+```
+
+9. 外部DBを参照する支払方法テーブルを作成
+
+```
+CREATE FOREIGN TABLE order_system.payment_methods (
+    payment_method_id bigserial not null,
+    payment_method_name varchar not null
+)
+SERVER headquarters_server
+OPTIONS (schema_name 'management_system', table_name 'payment_methods');
+```
+
+10. 支店の座席テーブルを作成
+```
+create table order_system.seats(
+    seat_id integer not null,
+    vacant_seat_flg boolean not null default true,
+    number_of_people integer not null default 0,
+    number_of_seats integer not null,
+    primary key (seat_id)
+);
+```
+
+11. 支店の座席情報をINSERT
+
+```
+insert into order_system.seats (seat_id, number_of_seats) values
+(1, 1),
+(2, 1),
+(3, 1),
+(4, 1),
+(5, 1),
+(6, 1),
+(7, 6),
+(8, 6),
+(9, 6),
+(10, 6),
+(11, 6),
+(12, 6);
+```
+
+12. 支店の顧客テーブルを作成
+
+```
+create table order_system.customers(
+    customer_id uuid not null default gen_random_uuid(),
+    entry_time timestamp not null DEFAULT CURRENT_TIMESTAMP,
+    number_of_people integer not null,
+    seat_id integer not null,
+    exit_time timestamp,
+    payment_price integer,
+    payment_method integer,
+    check_time timestamp,
+    primary key (customer_id),
+    foreign key (seat_id) references order_system.seats(seat_id)
+);
+```
+
+13. 支店の注文テーブルを作成
+
+```
+create table order_system.orders(
+    order_time timestamp not null default CURRENT_TIMESTAMP,
+    customer_id uuid not null,
+    menu_id uuid not null,
+    menu_price integer not null,
+    number_of_orders integer not null,
+    seat_id integer not null,
+    distributed_flg boolean not null default false,
+    received_flg boolean not null default false,
+    foreign key (customer_id) references order_system.customers(customer_id),
+    foreign key (seat_id) references order_system.seats(seat_id),
+    check (number_of_orders >= 1 AND number_of_orders <= 4)
+)
+PARTITION BY RANGE (order_time);
+```
+
+14. 支店の注文ひと月ごとのパーテションを作成
+
+```
+CREATE TABLE order_system.orders_partition_2024_03
+PARTITION OF order_system.orders
+FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
+```
+
+#### 3-4-2. 座席案内スクリプトの作成
+
+1. 顧客テーブルに顧客IDと座席IDをINSERTするトリガ関数
+
+```
+CREATE OR REPLACE FUNCTION order_system.welcome_func()
+RETURNS TRIGGER AS $$
+DECLARE
+    arg1 INT;
+    arg2 INT;
+BEGIN
+    arg1 := NEW.number_of_people; 
+    arg2 := NEW.seat_id; 
+
+    insert into order_system.customers (number_of_people, seat_id) values (arg1, arg2);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+2. 空席フラグがtrueからfalseになると発動するトリガ
+
+```
+CREATE TRIGGER welcome_trig
+AFTER UPDATE OF vacant_seat_flg ON order_system.seats
+FOR EACH ROW
+WHEN (OLD.vacant_seat_flg = true AND NEW.vacant_seat_flg = false)
+EXECUTE FUNCTION order_system.welcome_func();
+```
+
+#### 3-4-3. 注文スクリプトの作成
+
+1. 顧客IDから座席番号を取得する関数
+
+```
+CREATE OR REPLACE FUNCTION order_system.get_seat_number(customer_id_in UUID)
+RETURNS INTEGER AS $$
+DECLARE
+    seat_number INTEGER;
+BEGIN
+    SELECT seat_id INTO seat_number FROM order_system.customers WHERE customer_id = customer_id_in;
+    RETURN seat_number;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+2. 商品IDから金額を取得する関数
+
+```
+CREATE OR REPLACE FUNCTION order_system.get_menu_price(menu_id_in uuid)
+RETURNS INTEGER AS $$
+DECLARE
+    menu_price_out INTEGER;
+BEGIN
+    SELECT menu_price INTO menu_price_out FROM order_system.menus WHERE menu_id = menu_id_in;
+    RETURN menu_price_out;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### 3-4-4. 会計スクリプトの作成
+
+1. 注文金額を合計して顧客テーブルのpayment_priceをUPDATEするトリガ関数
+
+```
+CREATE OR REPLACE FUNCTION order_system.please_check_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- customer_idに関連する注文の合計金額を計算
+    SELECT SUM(o.number_of_orders * m.menu_price) INTO NEW.payment_price
+    FROM order_system.orders o
+    JOIN order_system.menus m ON o.menu_id = m.menu_id
+    WHERE o.customer_id = NEW.customer_id;
+
+    -- 合計金額をorder_system.customersテーブルのpayment_price列に設定
+    UPDATE order_system.customers
+    SET payment_price = NEW.payment_price
+    WHERE customer_id = NEW.customer_id;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+2. 顧客テーブルの退店時間がnullから更新されると発動するトリガ
+
+```
+CREATE TRIGGER please_check_trig
+AFTER UPDATE OF exit_time ON order_system.customers
+FOR EACH ROW
+WHEN (OLD.exit_time IS NULL AND NEW.exit_time IS NOT NULL)
+EXECUTE FUNCTION order_system.please_check_func();
+```
+
+### 3-5. 豊田朝日店DBのレプリケーション設定
+
+#### 3-5-1. Publication設定
+
+1. パブリッシャ側のDBに接続
+
+```
+psql -h 127.0.0.1 -p 5435 -U postgres -d store_4123
+```
+
+2. レプリケーション対象テーブルと適用範囲を指定してパブリケーション作成
+
+```
+CREATE PUBLICATION publication_all_tbl FOR ALL TABLES;
+```
+
+3. レプリケーション対象テーブルの確認
+
+```
+SELECT * FROM pg_publication_tables;
+```
+
+4. レプリケーション対象操作の確認
+
+```
+SELECT * FROM pg_publication;
+```
+
+#### 3-5-2. Subsucliction設定
+
+1. サブスクライバ側のDBに接続
+
+```
+psql -h 127.0.0.1 -p 5436 -U postgres
+```
+
+2. レプリケーション用のデータベース作成
+
+```
+create database store_4123_replica;
+```
+
+3. レプリケーション用のデータベースに接続
+
+```
+\c store_4123_replica
+```
+
+4. レプリケーション用のスキーマ作成
+
+```
+create schema order_system;
+```
+
+5. postgres_fdw拡張機能を有効
+
+```
+CREATE EXTENSION postgres_fdw;
+```
+
+6. 外部DB接続用のサーバーを作成
+
+```
+CREATE SERVER headquarters_server
+FOREIGN DATA WRAPPER postgres_fdw
+OPTIONS (host '127.0.0.1', port '5432', dbname 'headquarters');
+```
+
+7. 外部DBのマッピングを作成
+
+```
+CREATE USER MAPPING FOR postgres
+SERVER headquarters_server
+OPTIONS (user 'postgres', password 'hoge');
+```
+
+8. 外部DBを参照する商品テーブルを作成
+
+```
+create foreign table order_system.menus(
+    menu_id uuid,
+    menu_classification varchar,
+    menu_name varchar,
+    menu_price integer,
+    sale_flg boolean
+)
+SERVER headquarters_server
+OPTIONS (schema_name 'management_system', table_name 'menus');
+```
+
+9. 外部DBを参照する支払方法テーブルを作成
+
+```
+CREATE FOREIGN TABLE order_system.payment_methods (
+    payment_method_id bigserial not null,
+    payment_method_name varchar not null
+)
+SERVER headquarters_server
+OPTIONS (schema_name 'management_system', table_name 'payment_methods');
+```
+
+10. 支店の座席テーブルを作成
+
+```
+create table order_system.seats(
+    seat_id integer not null,
+    vacant_seat_flg boolean not null default true,
+    number_of_people integer not null default 0,
+    number_of_seats integer not null,
+    primary key (seat_id)
+);
+```
+
+11. 支店の顧客テーブルを作成
+
+```
+create table order_system.customers(
+    customer_id uuid not null default gen_random_uuid(),
+    entry_time timestamp not null DEFAULT CURRENT_TIMESTAMP,
+    number_of_people integer not null,
+    seat_id integer not null,
+    exit_time timestamp,
+    payment_price integer,
+    payment_method integer,
+    check_time timestamp,
+    primary key (customer_id),
+    foreign key (seat_id) references order_system.seats(seat_id)
+);
+```
+
+12. 支店の注文テーブルを作成
+
+```
+create table order_system.orders(
+    order_time timestamp not null default CURRENT_TIMESTAMP,
+    customer_id uuid not null,
+    menu_id uuid not null,
+    menu_price integer not null,
+    number_of_orders integer not null,
+    seat_id integer not null,
+    distributed_flg boolean not null default false,
+    received_flg boolean not null default false,
+    foreign key (customer_id) references order_system.customers(customer_id),
+    foreign key (seat_id) references order_system.seats(seat_id),
+    check (number_of_orders >= 1 AND number_of_orders <= 4)
+)
+PARTITION BY RANGE (order_time);
+```
+
+13. 支店の注文ひと月ごとのパーテションを作成
+
+```
+CREATE TABLE order_system.orders_partition_2024_03
+PARTITION OF order_system.orders
+FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
+```
+
+14. パブリッシャーへの接続情報とパブリケーションを指定してサブスクリプション作成
+
+```
+CREATE SUBSCRIPTION subscriction_all_tbl CONNECTION 'host=localhost port=5435 user=postgres dbname=store_4123 password=hoge' PUBLICATION publication_all_tbl;
+```
+
+15. 座席テーブルがパブリッシャ側の座席テーブルと同じ状態になっていることを確認
+
+```
+select * from order_system.seats;
+```
+
+## 5. CRUD処理
+
+### 5-1. SELECT
+
+### 5-2. INSERT
+
+### 5-3. UPDATE
+
+### 5-4. DELETE
+
+## 6. バックアップと修復
+
+### 6-1. dump
+
+### 6-2. restore
+
+## 7. パフォーマンスとチューニング
+
+### 7-1. INDEX
+
+```
+CREATE INDEX idx_customer_id ON order_system.orders(customer_id);
+```
+
+### 7-2. 実行計画
+
+## 8. 外部テーブル参照
+
+### 8-1. FDW
+
+### 8-2. 外部キー制約
+
+## 9. テーブルのパーティショニング
+
+### 9-1. 範囲パーティション
+
+### 9-2. リストパーティシン
+
+## 10. オブジェクトリストの作成
+
+### 10-1.
+
+## 11. データの型
+
+### 11-1.
+
+
+### 3-5. トリガ
+### 3-6. トリガ関数
+### 3-7. 関数
+### 3-8. プロシージャ
+
 ```
 create table items(
     user_id uuid not null,
@@ -620,84 +1353,150 @@ CALL add_item('9c398f32-e088-4b0a-bf6e-b4a623b516ed', '肉まん', 14);
 select * from items;
 ```
 
-## 4. レプリケーション
-
-### 4-1. Publicationの設定
-
-#### パブリケーション作成時にレプリケーション対象テーブルと適用範囲を指定する
-```
-CREATE PUBLICATION my_publication FOR ALL TABLES;
-```
-
-#### レプリケーション対象テーブルの確認
-```
-SELECT * FROM pg_publication_tables;
-```
-
-#### レプリケーション対象操作の確認
-```
-SELECT * FROM pg_publication;
-```
-
-### 4-2. Subsuclictionの設定
+### 3-9. ビュー
 
 ```
-create database store_4316_replica
+create view user_list as select user_id, user_name from table_a;
 ```
 
 ```
-\d store_4316_replica
+select * from user_list;
 ```
 
 ```
-create schema order_system;
+create view user_level_avg as select avg(user_level) from table_a;
 ```
 
 ```
-create table order_system.seats(
-    seat_id integer not null,
-    vacant_seat_flg boolean not null default true,
-    number_of_people integer not null default 0,
-    number_of_seats integer not null,
-    primary key (seat_id)
-);
+select * from user_level_avg;
 ```
 
-#### サブスクリプション作成時にパブリッシャーへの接続情報とパブリケーションを指定
 ```
-CREATE SUBSCRIPTION my_subscriction CONNECTION 'host=localhost port=5433 user=postgres dbname=store_4316 password=hoge' PUBLICATION my_publication;
+select avg(user_level) from table_a;
+```
+
+```
+select max(user_level), min(user_level) from table_a; 
 ```
 
 
+### 3-1. 基本操作
 
+#### DB接続
 
-
-
-
-
-
-
-
-
-
-## 5. CRUD処理
-
-### SELECT
-
-### INSERT
-
-### UPDATE
-
-### DELETE
-
-## 6. バックアップと修復
-
-### dump
-
-### restore
-
-
-### インデックス
 ```
-CREATE INDEX idx_customer_id ON order_system.orders(customer_id);
+psql -h {ip_address} -p {port_num} -U {user_name}
+```
+
+#### DB一覧
+
+```
+\l
+```
+
+#### DB切断
+
+```
+\c {databse_name}
+```
+
+#### DB切断
+
+```
+\c {databse_name}
+```
+
+#### スキーマの一覧を確認
+
+```
+select nspname from pg_namespace
+where nspname = 'order_system';
+```
+
+#### テーブルの一覧を確認
+
+```
+select schemaname, tablename, tableowner from pg_tables
+where schemaname = 'order_system';
+```
+
+#### テーブルの内容を確認
+
+```
+
+```
+
+#### 外部テーブルの一覧を確認
+
+```
+select 
+foreign_table_catalog, 
+foreign_table_schema, 
+foreign_table_name, 
+foreign_server_catalog, 
+foreign_server_name 
+from information_schema.foreign_tables;
+```
+
+#### 外部テーブルの内容を確認
+
+```
+
+```
+
+#### トリガの一覧を確認
+
+```
+SELECT tgname FROM pg_trigger
+where tgisinternal = false;
+
+>> welcome_trig
+>> please_check_trig
+```
+
+#### トリガの内容を確認
+
+```
+
+```
+
+#### トリガ関数の一覧を確認
+
+```
+SELECT tgname, proname FROM pg_trigger t, pg_proc f 
+where t.tgfoid = f.oid and
+tgisinternal = false;
+
+>> welcome_func
+>> please_check_func
+```
+
+#### トリガ関数の内容を確認
+
+```
+SELECT * FROM pg_trigger 
+WHERE tgname = 'welcome_trig';
+```
+
+#### 関数の確認
+
+```
+
+```
+
+#### 関数の内容を確認
+
+'''
+SELECT prosrc FROM pg_proc 
+WHERE proname = 'welcome_func';
+'''
+
+#### プロシージャの確認
+
+```
+```
+
+#### ビューの確認
+
+```
 ```

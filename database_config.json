@@ -1,0 +1,47 @@
+[
+    {
+        "database": "headquarters",
+        "user": "postgres",
+        "password": "hoge",
+        "host": "127.0.0.1",
+        "port": 5432,
+        "schema": "management_system",
+        "note": "本店"
+    },
+    {
+        "database": "store_4316",
+        "user": "postgres",
+        "password": "hoge",
+        "host": "127.0.0.1",
+        "port": 5433,
+        "schema": "order_system",
+        "note": "豊田高岡店_Publication"
+    },
+    {
+        "database": "store_4316_replica",
+        "user": "postgres",
+        "password": "hoge",
+        "host": "127.0.0.1",
+        "port": 5434,
+        "schema": "order_system",
+        "note": "豊田高岡店_Subsucliction"
+    },
+    {
+        "database": "store_4123",
+        "user": "postgres",
+        "password": "hoge",
+        "host": "127.0.0.1",
+        "port": 5435,
+        "schema": "order_system",
+        "note": "豊田朝日店_Publication"
+    },
+    {
+        "database": "store_4123_replica",
+        "user": "postgres",
+        "password": "hoge",
+        "host": "127.0.0.1",
+        "port": 5436,
+        "schema": "order_system",
+        "note": "豊田朝日店_Subsucliction"
+    }
+]

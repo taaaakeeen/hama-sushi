@@ -1,7 +1,0 @@
-{
-    "database": "store_4316",
-    "user": "postgres",
-    "password": "hoge",
-    "host": "127.0.0.1",
-    "port": 5432
-}
