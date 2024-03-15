@@ -47,15 +47,6 @@ pgadmin表示崩れたとき
 
 ----------------------------------------------------------------------------------------
 
-pg_ctl -D C:\PostgreSQL\server_01 -l C:\PostgreSQL\server_01\server_01.log start
-pg_ctl -D C:\PostgreSQL\server_02 -l C:\PostgreSQL\server_02\server_02.log start
-pg_ctl -D C:\PostgreSQL\server_03 -l C:\PostgreSQL\server_03\server_03.log start
-pg_ctl -D C:\PostgreSQL\server_04 -l C:\PostgreSQL\server_04\server_04.log start
-
-netstat -ano -o | find "5433"
-netstat -ano -o | find "5434"
-netstat -ano -o | find "5435"
-netstat -ano -o | find "5436"
 
 psql -h 127.0.0.1 -p 5433 -U postgres
 
@@ -73,3 +64,42 @@ WHERE o.customer_id = '3efe1e39-2c9b-4e77-ab08-38dc2a465aa2';
 
 トリガー
 SELECT * FROM pg_trigger;
+
+DROP DATABASE store_4316
+
+商品注文Appで注文
+insert into order_system.orders (customer_id, menu_id, menu_price, number_of_orders, seat_id) values(
+    '1edeb5b2-96da-448f-b77a-04bc3b45ac0f',
+    '8c8e6f2c-8373-4f1f-8175-9288f41533d5',
+    order_system.get_menu_price('8c8e6f2c-8373-4f1f-8175-9288f41533d5'),
+    2,
+    order_system.get_seat_number('1edeb5b2-96da-448f-b77a-04bc3b45ac0f')
+);
+
+注文金額合計を確認
+SELECT SUM(o.number_of_orders * m.menu_price) AS total_order_amount
+FROM order_system.orders o
+JOIN order_system.menus m ON o.menu_id = m.menu_id
+WHERE o.customer_id = '1edeb5b2-96da-448f-b77a-04bc3b45ac0f';
+
+商品注文Appで会計ボタン押す
+UPDATE order_system.customers
+SET exit_time = CURRENT_TIMESTAMP
+WHERE customer_id = '1edeb5b2-96da-448f-b77a-04bc3b45ac0f';
+
+顧客テーブルを確認
+select * from order_system.customers
+WHERE customer_id = '1edeb5b2-96da-448f-b77a-04bc3b45ac0f';
+
+楽天ペイで決済
+UPDATE order_system.customers
+SET check_time = CURRENT_TIMESTAMP,
+payment_method = 3
+WHERE customer_id = '1edeb5b2-96da-448f-b77a-04bc3b45ac0f';
+
+drop database {database_name};
+
+netstat -ano -o | find "5437"
+
+taskkill /PID 12440 /F
+ 

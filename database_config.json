@@ -1,14 +1,16 @@
 [
     {
-        "database": "headquarters",
-        "user": "postgres",
+        "server_name": "server_00",
+        "database_name": "headquarters",
+        "user_name": "postgres",
         "password": "hoge",
         "host": "127.0.0.1",
         "port": 5432,
         "schema": "management_system",
-        "note": "本店"
+        "note": "本社"
     },
     {
+        "server_name": "server_01",
         "database": "store_4316",
         "user": "postgres",
         "password": "hoge",
@@ -18,6 +20,7 @@
         "note": "豊田高岡店_Publication"
     },
     {
+        "server_name": "server_02",
         "database": "store_4316_replica",
         "user": "postgres",
         "password": "hoge",
@@ -27,6 +30,7 @@
         "note": "豊田高岡店_Subsucliction"
     },
     {
+        "server_name": "server_03",
         "database": "store_4123",
         "user": "postgres",
         "password": "hoge",
@@ -36,6 +40,7 @@
         "note": "豊田朝日店_Publication"
     },
     {
+        "server_name": "server_04",
         "database": "store_4123_replica",
         "user": "postgres",
         "password": "hoge",
@@ -43,5 +48,15 @@
         "port": 5436,
         "schema": "order_system",
         "note": "豊田朝日店_Subsucliction"
+    },
+    {
+        "server_name": "server_05",
+        "database": "headquarters",
+        "user": "postgres",
+        "password": "hoge",
+        "host": "127.0.0.1",
+        "port": 5437,
+        "schema": "management_system",
+        "note": "本社"
     }
 ]

@@ -1,22 +1,5 @@
-> [!NOTE]
-> Useful information that users should know, even when skimming content.
-
-> [!TIP]
-> Helpful advice for doing things better or more easily.
-
-> [!IMPORTANT]
-> Key information users need to know to achieve their goal.
-
-> [!WARNING]
-> Urgent info that needs immediate user attention to avoid problems.
-
-> [!CAUTION]
-> Advises about risks or negative outcomes of certain actions.
-
----
-
 # PostgreSQL基本機能の学習  
-回転寿司の座席案内->商品注文->会計システムを作成します
+回転寿司の座席案内->商品注文->会計システムを作成を通じてDBを学習します
 
 ## 目次
 1. システム構成
@@ -46,28 +29,22 @@
     - 3-5. 豊田朝日店DBのレプリケーション設定
         - 3-5-1. Publication設定
         - 3-5-2. Subsucliction設定
-4. 基本操作
+4. バックアップと修復
+    - 4-1. dump
+    - 4-2. restore
 5. CRUD処理
     - 5-1. SELECT
     - 5-2. INSERT
     - 5-3. UPDATE
     - 5-4. DELETE
-6. バックアップと修復
-    - 6-1. dump
-    - 6-2. restore
-7. パフォーマンスとチューニング
-    - 7-1. INDEX
-    - 7-2. 実行計画
-8. 外部テーブル参照
-    - 8-1. FDW
-    - 8-2. 外部キー制約
-9. テーブルのパーティショニング
-    - 9-1. 範囲パーティション
-    - 9-2. リストパーティション
-10. オブジェクトリストの作成
-    - 10-1. 
-11. データの型
-    - 11-1. 
+6. パフォーマンス
+    - 6-1. INDEX
+    - 6-2. 実行計画
+7. テーブルのパーティショニング
+    - 7-1. 範囲パーティション
+    - 7-2. リストパーティション
+8. オブジェクトリストの作成
+    - 8-1. 
 
 ## 1. システム構成
 
@@ -129,7 +106,7 @@ psqlコマンドのパスを通します
 
 <img src="img\2024-03-08 094225.png">
 
-4. 新規 -> {"psql.exe"保存先のパス} -> OK
+4. 新規 -> {psql.exe保存先のパス} -> OK
 
 <img src="img\2024-03-08 094543.png">
 
@@ -190,8 +167,6 @@ initdb -U postgres -D C:\PostgreSQL\server_04
 - C:\PostgreSQL\server_04\postgresql.conf
     - port = 5436
     - shared_preload_libraries = 'postgres_fdw'
-
----
 
 1. ポート番号を設定
 
@@ -262,7 +237,7 @@ netstat -ano -o | find "5436"
 psql -h localhost -p 5432 -U postgres
 ```
 
-3. 本社DBを作成
+2. 本社DBを作成
 
 ```
 create database headquarters;
@@ -1270,63 +1245,202 @@ FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
 CREATE SUBSCRIPTION subscriction_all_tbl CONNECTION 'host=localhost port=5435 user=postgres dbname=store_4123 password=hoge' PUBLICATION publication_all_tbl;
 ```
 
-15. 座席テーブルがパブリッシャ側の座席テーブルと同じ状態になっていることを確認
-
-```
-select * from order_system.seats;
-```
-
-## 5. CRUD処理
-
-### 5-1. SELECT
-
-### 5-2. INSERT
-
-### 5-3. UPDATE
-
-### 5-4. DELETE
-
 ## 6. バックアップと修復
 
 ### 6-1. dump
 
+1. DBをarciveでdump
+
+```
+pg_dump -h 127.0.0.1 -p 5433 -U postgres -d store_4316 -Fc -f C:\PostgreSQL\2024-03-15_store_4316_database.dump
+```
+
+2. DBをscriptでdump
+
+```
+pg_dump -h 127.0.0.1 -p 5433 -U postgres -d store_4316 -f C:\PostgreSQL\2024-03-15_store_4316_database.sql
+```
+
+3. クラスタ全体をscriptでdump
+
+```
+pg_dumpall -h 127.0.0.1 -p 5433 -U postgres -f C:\PostgreSQL\2024-03-15_server_01.sql
+```
+
 ### 6-2. restore
 
-## 7. パフォーマンスとチューニング
+1. restore用のクラスタを作成
 
-### 7-1. INDEX
+```
+mkdir C:\PostgreSQL\server_05
+initdb -U postgres -D C:\PostgreSQL\server_05
+```
+
+2. confファイルを編集します
+
+- C:\PostgreSQL\server_04\postgresql.conf
+    - port = 5437
+    - shared_preload_libraries = 'postgres_fdw'
+    - wal_level = logical
+
+3. サービス起動済みの場合プロセスを殺します
+
+```
+taskkill /PID {PID} /F
+```
+
+4. クラスタのサービスを起動します
+
+```
+pg_ctl -D C:\PostgreSQL\server_05 -l C:\PostgreSQL\server_05\server_05.log start
+```
+
+5. サービスが起動していることを確認
+```
+netstat -ano -o | find "5437"
+```
+
+6. restoreを実行
+
+```
+pg_restore -C -h 127.0.0.1 -p 5437 -U postgres -d postgres C:\PostgreSQL\2024-03-15_store_4316_database.dump
+```
+
+7. restoreしたDBに接続
+
+```
+psql -h localhost -p 5437 -U postgres -d store_4316
+```
+
+8. order_systemスキーマのテーブル一覧
+
+```
+\dt order_system.*
+```
+
+<img src="img\2024-03-15 162803.png">
+
+9. ordersテーブルを確認
+
+```
+select * from order_system.orders;
+```
+
+<img src="img\2024-03-15 162739.png">
+
+## 5. CRUD処理
+
+私の部屋のセンサ値を使って遊びます
+
+サーバに接続
+```
+psql -h localhost -p 5432 -U postgres
+```
+
+DB作成
+```
+create database measurement_data;
+```
+
+DB接続
+```
+\c measurement_data
+```
+
+スキーマ作成
+```
+create schema room;
+```
+
+テーブル作成
+```
+create table room.sensor_values(
+    machine_id integer,
+    timestamp timestamp,
+    temperature double precision,
+    humidity double precision,
+    barometric_pressure double precision
+);
+```
+
+CSVをインポート
+```
+COPY room.sensor_values(machine_id, timestamp, temperature, humidity, barometric_pressure)
+FROM 'C:\PostgreSQL\sensor_values.csv' DELIMITER ',' CSV HEADER;
+```
+
+結果を確認
+```
+select *
+from room.sensor_values
+limit 10;
+```
+
+### 5-1. SELECT
+
+```
+SELECT COUNT(*)
+FROM room.sensor_values;
+```
+
+```
+SELECT EXTRACT(MONTH FROM timestamp) AS month, 
+COUNT(*) AS row_count
+FROM room.sensor_values
+GROUP BY EXTRACT(MONTH FROM timestamp)
+ORDER BY EXTRACT(MONTH FROM timestamp);
+```
+
+```
+SELECT EXTRACT(YEAR FROM timestamp) AS year,
+EXTRACT(MONTH FROM timestamp) AS month,
+MAX(temperature) AS max_temperature,
+MIN(temperature) AS min_temperature
+FROM room.sensor_values
+GROUP BY EXTRACT(YEAR FROM timestamp), EXTRACT(MONTH FROM timestamp)
+ORDER BY EXTRACT(YEAR FROM timestamp), EXTRACT(MONTH FROM timestamp);
+
+```
+
+
+### 5-2. INSERT
+
+```
+```
+
+### 5-3. UPDATE
+
+```
+```
+
+### 5-4. DELETE
+
+```
+```
+
+## 6. パフォーマンス
+
+### 6-1. INDEX
 
 ```
 CREATE INDEX idx_customer_id ON order_system.orders(customer_id);
 ```
 
-### 7-2. 実行計画
-
-## 8. 外部テーブル参照
-
-### 8-1. FDW
-
-### 8-2. 外部キー制約
-
-## 9. テーブルのパーティショニング
-
-### 9-1. 範囲パーティション
-
-### 9-2. リストパーティシン
-
-## 10. オブジェクトリストの作成
-
-### 10-1.
-
-## 11. データの型
-
-### 11-1.
+### 6-2. 実行計画
 
 
-### 3-5. トリガ
-### 3-6. トリガ関数
-### 3-7. 関数
-### 3-8. プロシージャ
+## 7. パーティショニング
+
+### 7-1. 範囲パーティション
+
+### 7-2. リストパーティシン
+
+## 8. オブジェクトリストの作成
+
+### トリガ
+### トリガ関数
+### 関数
+### プロシージャ
 
 ```
 create table items(
