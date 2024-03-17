@@ -37,14 +37,10 @@
     - 5-2. INSERT
     - 5-3. UPDATE
     - 5-4. DELETE
-6. パフォーマンス
-    - 6-1. INDEX
-    - 6-2. 実行計画
-7. テーブルのパーティショニング
-    - 7-1. 範囲パーティション
-    - 7-2. リストパーティション
-8. オブジェクトリストの作成
-    - 8-1. 
+6. 実行計画
+    - 6-1. 実行速度
+    - 6-2. INDEX
+7. オブジェクトリストの作成
 
 ## 1. システム構成
 
@@ -1245,9 +1241,9 @@ FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
 CREATE SUBSCRIPTION subscriction_all_tbl CONNECTION 'host=localhost port=5435 user=postgres dbname=store_4123 password=hoge' PUBLICATION publication_all_tbl;
 ```
 
-## 6. バックアップと修復
+## 4. バックアップと修復
 
-### 6-1. dump
+### 4-1. dump
 
 1. DBをarciveでdump
 
@@ -1267,7 +1263,7 @@ pg_dump -h 127.0.0.1 -p 5433 -U postgres -d store_4316 -f C:\PostgreSQL\2024-03-
 pg_dumpall -h 127.0.0.1 -p 5433 -U postgres -f C:\PostgreSQL\2024-03-15_server_01.sql
 ```
 
-### 6-2. restore
+### 4-2. restore
 
 1. restore用のクラスタを作成
 
@@ -1296,6 +1292,7 @@ pg_ctl -D C:\PostgreSQL\server_05 -l C:\PostgreSQL\server_05\server_05.log start
 ```
 
 5. サービスが起動していることを確認
+
 ```
 netstat -ano -o | find "5437"
 ```
@@ -1330,66 +1327,89 @@ select * from order_system.orders;
 
 ## 5. CRUD処理
 
-私の部屋のセンサ値を使って遊びます
+私の部屋のセンサ値を使用します
 
-サーバに接続
+1. サーバに接続
+
 ```
 psql -h localhost -p 5432 -U postgres
 ```
 
-DB作成
+2. DB作成
+
 ```
 create database measurement_data;
 ```
 
-DB接続
+3. DB接続
+
 ```
 \c measurement_data
 ```
 
-スキーマ作成
+4. スキーマ作成
+
 ```
 create schema room;
 ```
 
-テーブル作成
+5. テーブル作成
+
+```
+create table room.sensor_machines(
+    machine_id integer,
+    location_name varchar,
+    PRIMARY KEY (machine_id)
+);
+```
+
 ```
 create table room.sensor_values(
     machine_id integer,
     timestamp timestamp,
     temperature double precision,
     humidity double precision,
-    barometric_pressure double precision
+    barometric_pressure double precision,
+    FOREIGN KEY (machine_id)
+    REFERENCES room.sensor_machines(machine_id)
+    ON DELETE CASCADE
 );
 ```
 
-CSVをインポート
+6. 測定装置を登録
+
+```
+INSERT INTO room.sensor_machines (machine_id, location_name)
+VALUES (1, '豊田市');
+```
+
+7. CSVをインポート
+
 ```
 COPY room.sensor_values(machine_id, timestamp, temperature, humidity, barometric_pressure)
 FROM 'C:\PostgreSQL\sensor_values.csv' DELIMITER ',' CSV HEADER;
 ```
 
-結果を確認
+8. 結果を確認
+
 ```
-select *
-from room.sensor_values
+SELECT *
+FROM room.sensor_machines AS sm
+JOIN room.sensor_values AS sv ON sm.machine_id = sv.machine_id
+WHERE sm.machine_id = 1
 limit 10;
 ```
 
 ### 5-1. SELECT
+
+1. テーブルのレコード数
 
 ```
 SELECT COUNT(*)
 FROM room.sensor_values;
 ```
 
-```
-SELECT EXTRACT(MONTH FROM timestamp) AS month, 
-COUNT(*) AS row_count
-FROM room.sensor_values
-GROUP BY EXTRACT(MONTH FROM timestamp)
-ORDER BY EXTRACT(MONTH FROM timestamp);
-```
+2. 月ごとの最高気温と最低気温
 
 ```
 SELECT EXTRACT(YEAR FROM timestamp) AS year,
@@ -1399,104 +1419,264 @@ MIN(temperature) AS min_temperature
 FROM room.sensor_values
 GROUP BY EXTRACT(YEAR FROM timestamp), EXTRACT(MONTH FROM timestamp)
 ORDER BY EXTRACT(YEAR FROM timestamp), EXTRACT(MONTH FROM timestamp);
-
 ```
 
+3. 月ごとの最高気温と最低気温のVIEWを作成
+
+```
+CREATE VIEW room.monthly_temperature_stats AS
+SELECT 
+EXTRACT(YEAR FROM timestamp) AS "年",
+EXTRACT(MONTH FROM timestamp) AS "月",
+MAX(temperature) AS "最高気温",
+MIN(temperature) AS "最低気温"
+FROM room.sensor_values
+GROUP BY EXTRACT(YEAR FROM timestamp), EXTRACT(MONTH FROM timestamp)
+ORDER BY EXTRACT(YEAR FROM timestamp), EXTRACT(MONTH FROM timestamp);
+```
+
+4. VIEWの呼び出し
+
+```
+SELECT * FROM room.monthly_temperature_stats;
+```
 
 ### 5-2. INSERT
 
+1. 集計データ用のテーブルを作成
+
 ```
+CREATE TABLE room.daily_summary (
+date DATE,
+machine_id integer,
+max_temperature double precision,
+min_temperature double precision,
+max_humidity double precision,
+min_humidity double precision,
+max_barometric_pressure double precision,
+min_barometric_pressure double precision,
+PRIMARY KEY (date, machine_id),
+FOREIGN KEY (machine_id)
+REFERENCES room.sensor_machines(machine_id)
+ON DELETE CASCADE
+);
+```
+
+2. select結果をINSERT
+
+```
+INSERT INTO room.daily_summary (date, machine_id, max_temperature, min_temperature, max_humidity, min_humidity, max_barometric_pressure, min_barometric_pressure)
+SELECT
+DATE(timestamp) AS date,
+machine_id,
+MAX(temperature) AS max_temperature,
+MIN(temperature) AS min_temperature,
+MAX(humidity) AS max_humidity,
+MIN(humidity) AS min_humidity,
+MAX(barometric_pressure) AS max_barometric_pressure,
+MIN(barometric_pressure) AS min_barometric_pressure
+FROM room.sensor_values
+GROUP BY DATE(timestamp), machine_id;
+```
+
+3. 集計データの確認
+
+```
+SELECT * FROM room.daily_summary;
 ```
 
 ### 5-3. UPDATE
 
+1. 集計テーブルを更新するトリガ関数の作成
+
 ```
+CREATE OR REPLACE FUNCTION room.update_daily_summary()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- 更新された日付と machine_id の組み合わせに対応する行を更新する
+    UPDATE room.daily_summary
+    SET
+        max_temperature = (SELECT MAX(temperature) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+        min_temperature = (SELECT MIN(temperature) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+        max_humidity = (SELECT MAX(humidity) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+        min_humidity = (SELECT MIN(humidity) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+        max_barometric_pressure = (SELECT MAX(barometric_pressure) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+        min_barometric_pressure = (SELECT MIN(barometric_pressure) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id)
+    WHERE date = NEW.timestamp::DATE AND machine_id = NEW.machine_id;
+    
+    -- 更新された日付と machine_id の組み合わせが存在しない場合は新しい行を挿入する
+    IF NOT FOUND THEN
+        INSERT INTO room.daily_summary (date, machine_id, max_temperature, min_temperature, max_humidity, min_humidity, max_barometric_pressure, min_barometric_pressure)
+        VALUES (NEW.timestamp::DATE, NEW.machine_id,
+            (SELECT MAX(temperature) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+            (SELECT MIN(temperature) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+            (SELECT MAX(humidity) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+            (SELECT MIN(humidity) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+            (SELECT MAX(barometric_pressure) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id),
+            (SELECT MIN(barometric_pressure) FROM room.sensor_values WHERE DATE(timestamp) = NEW.timestamp::DATE AND machine_id = NEW.machine_id)
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+2. sensor_valuesテーブルのinsert/updateで発動するトリガ
+
+```
+CREATE TRIGGER update_summary_trigger
+AFTER INSERT OR UPDATE ON room.sensor_values
+FOR EACH ROW
+EXECUTE FUNCTION room.update_daily_summary();
+```
+
+3. machine_idが1の2022-06-12の最高気温のレコードを確認
+
+```
+SELECT *
+FROM room.sensor_values
+WHERE machine_id = 1
+AND DATE(timestamp) = '2022-06-12'
+ORDER BY temperature DESC
+LIMIT 1;
+```
+
+4. 2022-06-12の最高気温のレコードを38.3に更新
+
+```
+UPDATE room.sensor_values
+SET temperature = 38.3
+WHERE machine_id = 1
+AND DATE(timestamp) = '2022-06-12'
+AND temperature = (SELECT MAX(temperature) FROM room.sensor_values WHERE machine_id = 1 AND DATE(timestamp) = '2022-06-12');
+```
+
+5. 集計テーブルの2022-06-12のレコードの最高気温が更新されていることを確認
+
+```
+select * from room.daily_summary
+where date = '2022-06-12';
 ```
 
 ### 5-4. DELETE
 
-```
-```
-
-## 6. パフォーマンス
-
-### 6-1. INDEX
+1. 測定装置を追加するプロシージャを作成
 
 ```
-CREATE INDEX idx_customer_id ON order_system.orders(customer_id);
-```
-
-### 6-2. 実行計画
-
-
-## 7. パーティショニング
-
-### 7-1. 範囲パーティション
-
-### 7-2. リストパーティシン
-
-## 8. オブジェクトリストの作成
-
-### トリガ
-### トリガ関数
-### 関数
-### プロシージャ
-
-```
-create table items(
-    user_id uuid not null,
-    item_name varchar not null,
-    item_level integer not null,
-    foreign key (user_id) references table_a(user_id)
-);
-```
-
-```
-CREATE PROCEDURE add_item(user_id uuid, item_name varchar, item_level integer)
-LANGUAGE SQL
+CREATE OR REPLACE PROCEDURE room.add_sensor_machine(
+    IN new_machine_id INTEGER,
+    IN new_location_name VARCHAR
+)
+LANGUAGE plpgsql
 AS $$
-INSERT INTO items VALUES (user_id, item_name, item_level);
+BEGIN
+    
+    -- 指定された location_name がすでに存在するかチェック
+    IF EXISTS (SELECT 1 FROM room.sensor_machines WHERE location_name = new_location_name) THEN
+        RAISE EXCEPTION 'location_name % already exists', new_location_name;
+    END IF;
+
+    -- 新しい測定装置を追加
+    INSERT INTO room.sensor_machines (machine_id, location_name) VALUES (new_machine_id, new_location_name);
+END;
 $$;
 ```
 
-```
-CALL add_item('9c398f32-e088-4b0a-bf6e-b4a623b516ed', '肉まん', 14);
-```
+2. プロシージャでtest装置を追加
 
 ```
-select * from items;
+CALL room.add_sensor_machine(2, '名古屋');
 ```
 
-### 3-9. ビュー
+3. 追加した装置のtestデータをinsert
 
 ```
-create view user_list as select user_id, user_name from table_a;
+INSERT INTO room.sensor_values (machine_id, timestamp, temperature, humidity, barometric_pressure)
+VALUES
+(2, '2024-01-01 12:00:00', 25.0, 60.0, 1005.0),
+(2, '2024-01-02 12:00:00', 24.5, 58.0, 1003.0),
+(2, '2024-01-03 12:00:00', 26.0, 62.0, 1007.0),
+(2, '2024-01-04 12:00:00', 24.0, 55.0, 1002.0);
 ```
 
-```
-select * from user_list;
-```
+4. testデータを確認
 
 ```
-create view user_level_avg as select avg(user_level) from table_a;
+SELECT *
+FROM room.sensor_machines AS sm
+JOIN room.sensor_values AS sv ON sm.machine_id = sv.machine_id
+WHERE sm.machine_id = 2;
 ```
 
-```
-select * from user_level_avg;
-```
+5. 集計テーブルも確認
 
 ```
-select avg(user_level) from table_a;
+SELECT *
+FROM room.sensor_machines AS sm
+JOIN room.daily_summary AS ds ON sm.machine_id = ds.machine_id
+WHERE sm.machine_id = 2;
 ```
 
+6. idが2の装置を削除
+
 ```
-select max(user_level), min(user_level) from table_a; 
+DELETE FROM room.sensor_machines
+WHERE machine_id = 2;
 ```
 
+7. センサ値テーブルと集計テーブルからtestデータが削除されていることを確認
 
-### 3-1. 基本操作
+```
+SELECT
+(SELECT COUNT(*) FROM room.sensor_values WHERE machine_id = 2) AS sensor_values_count,
+(SELECT COUNT(*) FROM room.daily_summary WHERE machine_id = 2) AS daily_summary_count;
+```
 
-#### DB接続
+## 6. 実行計画
+
+### 6-1. 実行速度
+
+1. インデックスを作成する前に実行速度を確認します
+
+```
+EXPLAIN ANALYZE SELECT * 
+FROM room.sensor_values 
+WHERE timestamp >= '2023-01-01' AND timestamp < '2023-02-01';
+```
+
+2. Seq Scan -> テーブル全体をスキャンして条件に一致する行を検索
+
+<img src="img\2024-03-17 173426.png">
+
+### 6-2. INDEX
+
+1. timestamp列にindexを設定します
+
+```
+CREATE INDEX idx_sensor_values_timestamp ON room.sensor_values (timestamp);
+```
+
+2. 再度実行速度を確認します
+
+```
+EXPLAIN ANALYZE SELECT * 
+FROM room.sensor_values 
+WHERE timestamp >= '2023-01-01' AND timestamp < '2023-02-01';
+```
+
+3. Index Scan -> インデックスによって行の順番が決定され、条件に一致する行を効率的に検索
+
+<img src="img\2024-03-17 173704.png">
+
+以下準備中
+---
+
+## 7. オブジェクトリストの作成
+
+
+
+#### DBサーバ接続
 
 ```
 psql -h {ip_address} -p {port_num} -U {user_name}
