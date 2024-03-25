@@ -1,3 +1,41 @@
+
+トリガーを取得するため
+SELECT tgname, pg_get_triggerdef(tr.oid) AS trigger_def, t.relname, n.nspname, pg_get_functiondef(tr.tgfoid) AS function_definition, *
+    FROM pg_trigger tr
+    INNER JOIN pg_class AS t ON tr.tgrelid = t.oid
+    INNER JOIN pg_namespace n ON n.oid = t.relnamespace
+
+プロシージャまたはファンクションを取得するため
+SELECT p.proname, nspname, p.prosrc, t.typname, *
+    FROM pg_catalog.pg_proc p
+    JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+    JOIN pg_catalog.pg_language ON p.prolang = pg_catalog.pg_language.oid
+    JOIN pg_type t ON p.prorettype = t.oid
+    where pg_catalog.pg_language.lanname = 'plpgsql';
+
+ビューテーブルを取得するため
+SELECT schemaname, viewname, definition
+    FROM pg_views
+    WHERE schemaname <> 'information_schema' and schemaname <> 'pg_catalog'
+
+カラムを取得するため
+SELECT cols.table_schema, cols.table_name, cols.column_name, cols.data_type, col_cons.constraint_name,  cons.constraint_type
+    FROM information_schema.columns cols
+    LEFT JOIN information_schema.constraint_column_usage col_cons ON cols.table_schema = col_cons.table_schema
+                                                               AND cols.table_name = col_cons.table_name
+                                                               AND cols.column_name = col_cons.column_name
+    LEFT JOIN information_schema.table_constraints cons ON col_cons.constraint_name = cons.constraint_name
+                                                         AND col_cons.constraint_schema = cons.constraint_schema
+    WHERE cols.table_schema <> 'pg_catalog'
+
+テーブルを取得するため
+SELECT table_name, table_schema
+    FROM information_schema.tables
+    WHERE table_schema <> 'postgres' and table_schema <> 'information_schema' and table_schema <> 'pg_catalog';
+
+
+
+
 win+r -> sysdm.cpl -> 詳細設定 -> 環境変数 -> システム環境変数 -> Path -> 編集 -> 新規
 変数値 C:\Program Files\PostgreSQL\13\bin
 PostgreSQLのバージョン確認 psql -V

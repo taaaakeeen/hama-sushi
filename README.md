@@ -870,9 +870,9 @@ select * from order_system.seats;
 
 ### 3-4. 豊田朝日店DBの作成
 
-<img src="img\2024-03-17 185701.png">
-
 高岡店とオブジェクトの構造は同じです
+
+<img src="img\2024-03-17 185701.png">
 
 #### 3-4-1. テーブルの作成
 
@@ -1365,6 +1365,8 @@ select * from order_system.orders;
 
 私の部屋のセンサ値を使用します
 
+[sensor_values.csv](https://github.com/taaaakeeen/hama-sushi/blob/main/sensor_values.csv)
+
 1. サーバに接続
 
 ```
@@ -1704,4 +1706,3 @@ WHERE timestamp >= '2023-01-01' AND timestamp < '2023-02-01';
 3. Index Scan -> インデックスによって行の順番が決定され、条件に一致する行を効率的に検索
 
 <img src="img\2024-03-17 173704.png">
-
