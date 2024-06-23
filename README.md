@@ -867,7 +867,9 @@ FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
 14. パブリッシャーへの接続情報とパブリケーションを指定してサブスクリプション作成
 
 ```
-CREATE SUBSCRIPTION subscriction_all_tbl CONNECTION 'host=localhost port=5433 user=postgres dbname=store_4316 password=hoge' PUBLICATION publication_all_tbl;
+CREATE SUBSCRIPTION subscriction_all_tbl 
+CONNECTION 'host=localhost port=5433 user=postgres dbname=store_4316 password=hoge' 
+PUBLICATION publication_all_tbl;
 ```
 
 15. 座席テーブルがパブリッシャ側の座席テーブルと同じ状態になっていることを確認
@@ -1282,7 +1284,9 @@ FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
 14. パブリッシャーへの接続情報とパブリケーションを指定してサブスクリプション作成
 
 ```
-CREATE SUBSCRIPTION subscriction_all_tbl CONNECTION 'host=localhost port=5435 user=postgres dbname=store_4123 password=hoge' PUBLICATION publication_all_tbl;
+CREATE SUBSCRIPTION subscriction_all_tbl 
+CONNECTION 'host=localhost port=5435 user=postgres dbname=store_4123 password=hoge' 
+PUBLICATION publication_all_tbl;
 ```
 
 ## 4. バックアップと修復
