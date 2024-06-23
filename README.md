@@ -416,12 +416,11 @@ OPTIONS (schema_name 'management_system', table_name 'menus');
 
 > [!TIP]
 > テーブル毎に参照対象設定するのではなくスキーマ全体を参照対象にすることも可能です
-
-```
-IMPORT FORGEN SCHEMA management_system
-FROM SERVER headquarters_server
-INTO order_system;
-```
+> ```
+> IMPORT FORGEN SCHEMA management_system
+> FROM SERVER headquarters_server
+> INTO order_system;
+> ```
 
 9. 全ての商品を確認
 
