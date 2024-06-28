@@ -1377,7 +1377,7 @@ select * from order_system.orders;
 
 私の部屋のセンサ値を使用します
 
-[sensor_values.csv](https://github.com/taaaakeeen/hama-sushi/blob/main/sensor_values.csv)
+[sensor_values.csv](https://github.com/taaaakeeen/hama-sushi/blob/main/data/sensor_values.csv)
 
 1. サーバに接続
 
