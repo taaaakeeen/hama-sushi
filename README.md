@@ -40,7 +40,6 @@
 6. 実行計画
     - 6-1. 実行速度
     - 6-2. INDEX
-7. オブジェクトリストの作成
 
 ## 1. システム構成
 
@@ -48,29 +47,29 @@
 
 1. 本社と支店のDB
 
-<img src="img\2024-03-17 185623.png">
+<img src="data/images/2024-03-17 185623.png">
 
 2. 支店は本社が管理するメニューと支払方法を使用します
 
-<img src="img\2024-03-17 185713.png">
+<img src="data/images/2024-03-17 185713.png">
 
 3. 支店はreplica DBを故障時のバックアップと本社からの参照用として運用します
 
-<img src="img\2024-03-17 185733.png">
+<img src="data/images/2024-03-17 185733.png">
 
 4. 本社は各支店のreplica DBを参照して売上データの解析に使用します
 
-<img src="img\2024-03-17 185718.png">
+<img src="data/images/2024-03-17 185718.png">
 
 ### 1-2. ER図
 
 1. 本社
 
-<img src="img\2024-03-17 192501.png">
+<img src="data/images/2024-03-17 192501.png">
 
 2. 支店
 
-<img src="img\2024-03-17 192539.png">
+<img src="data/images/2024-03-17 192539.png">
 
 - menues 商品テーブル
     - menu_id 商品ID
@@ -116,19 +115,19 @@ psqlコマンドのパスを通します
 
 1. win+r key -> sysdm.cpl -> OK
 
-<img src="img\2024-03-08 093211.png">
+<img src="data/images/2024-03-08 093211.png">
 
 2. 詳細設定 -> 環境変数
 
-<img src="img\2024-03-08 093840.png">
+<img src="data/images/2024-03-08 093840.png">
 
 3. システム環境変数 -> Path -> 編集
 
-<img src="img\2024-03-08 094225.png">
+<img src="data/images/2024-03-08 094225.png">
 
 4. 新規 -> {psql.exe保存先のパス} -> OK
 
-<img src="img\2024-03-08 094543.png">
+<img src="data/images/2024-03-08 094543.png">
 
 5. バージョン確認コマンド実行 -> パスが通ることを確認
 
@@ -136,7 +135,7 @@ psqlコマンドのパスを通します
 psql -V
 ```
 
-<img src="img\2024-03-08 095048.png">
+<img src="data/images/2024-03-08 095048.png">
 
 ### 2-2. クラスタの作成
 PC1台で複数のPostgreSQLサービスを稼働させます
@@ -154,7 +153,7 @@ mkdir server_04
 dir
 ```
 
-<img src="img\2024-03-08 085815.png">
+<img src="data/images/2024-03-08 085815.png">
 
 2. クラスタを作成
 
@@ -165,7 +164,7 @@ initdb -U postgres -D C:\PostgreSQL\server_03
 initdb -U postgres -D C:\PostgreSQL\server_04
 ```
 
-<img src="img\2024-03-08 101140.png">
+<img src="data/images/2024-03-08 101140.png">
 
 ### 2-3. postgresql.confの設定
 各クラスタのconfファイルを編集します
@@ -194,7 +193,7 @@ initdb -U postgres -D C:\PostgreSQL\server_04
 port = 5433
 ```
 
-<img src="img\2024-03-08 101731.png">
+<img src="data/images/2024-03-08 101731.png">
 
 2. FDWを有効にする
 
@@ -202,7 +201,7 @@ port = 5433
 shared_preload_libraries = 'postgres_fdw'
 ```
 
-<img src="img\2024-03-08 110013.png">
+<img src="data/images/2024-03-08 110013.png">
 
 3. レプリケーションを有効にする
 
@@ -210,18 +209,18 @@ shared_preload_libraries = 'postgres_fdw'
 wal_level = logical
 ```
 
-<img src="img\2024-03-08 151752.png">
+<img src="data/images/2024-03-08 151752.png">
 
 ### 2-4. サービスの起動
 confファイルを変更したのでシステムを再起動します
 
 1. win+r key -> services.msc -> OK
 
-<img src="img\2024-03-08 120656.png">
+<img src="data/images/2024-03-08 120656.png">
 
 2. postgresを再起動します
 
-<img src="img\2024-03-08 120845.png">
+<img src="data/images/2024-03-08 120845.png">
 
 3. クラスタのサービスを起動します
 
@@ -232,7 +231,7 @@ pg_ctl -D C:\PostgreSQL\server_03 -l C:\PostgreSQL\server_03\server_03.log start
 pg_ctl -D C:\PostgreSQL\server_04 -l C:\PostgreSQL\server_04\server_04.log start
 ```
 
-<img src="img\2024-03-08 102656.png">
+<img src="data/images/2024-03-08 102656.png">
 
 4. サービスが起動していることを確認
 
@@ -243,13 +242,13 @@ netstat -ano -o | find "5435"
 netstat -ano -o | find "5436"
 ```
 
-<img src="img\2024-03-08 102803.png">
+<img src="data/images/2024-03-08 102803.png">
 
 ## 3. DB作成
 
 ### 3-1. 本社DBの作成
 
-<img src="img\2024-03-17 185639.png">
+<img src="data/images/2024-03-17 185639.png">
 
 #### 3-1-1. テーブルの作成
 
@@ -319,7 +318,7 @@ insert into management_system.menus (menu_classification, menu_name, menu_price,
 select * from management_system.menus;
 ```
 
-<img src="img\2024-03-08 104133.png">
+<img src="data/images/2024-03-08 104133.png">
 
 8. 支払方法テーブルを作成
 
@@ -346,11 +345,11 @@ INSERT INTO management_system.payment_methods (payment_method_name) VALUES
 select * from management_system.payment_methods;
 ```
 
-<img src="img\2024-03-08 104616.png">
+<img src="data/images/2024-03-08 104616.png">
 
 ### 3-2. 豊田高岡店DBの作成
 
-<img src="img\2024-03-17 185656.png">
+<img src="data/images/2024-03-17 185656.png">
 
 #### 3-2-1. テーブルの作成
 
@@ -528,7 +527,7 @@ FOR VALUES FROM ('2024-03-01') TO ('2024-04-01');
 
 #### 3-2-2. 座席案内スクリプトの作成
 
-<img src="img\2024-03-17 192617.png">
+<img src="data/images/2024-03-17 192617.png">
 
 1. 顧客テーブルに顧客IDと座席IDをINSERTするトリガ関数
 
@@ -582,7 +581,7 @@ ORDER BY entry_time ASC;
 
 #### 3-2-3. 注文スクリプトの作成
 
-<img src="img\2024-03-17 192603.png">
+<img src="data/images/2024-03-17 192603.png">
 
 1. 顧客IDから座席番号を取得する関数
 
@@ -640,7 +639,7 @@ ORDER BY seat_id ASC;
 
 #### 3-2-4. 会計スクリプトの作成
 
-<img src="img\2024-03-17 192609.png">
+<img src="data/images/2024-03-17 192609.png">
 
 1. 注文金額合計を確認
 
@@ -882,7 +881,7 @@ select * from order_system.seats;
 
 高岡店とオブジェクトの構造は同じです
 
-<img src="img\2024-03-17 185701.png">
+<img src="data/images/2024-03-17 185701.png">
 
 #### 3-4-1. テーブルの作成
 
@@ -1363,7 +1362,7 @@ psql -h localhost -p 5437 -U postgres -d store_4316
 \dt order_system.*
 ```
 
-<img src="img\2024-03-15 162803.png">
+<img src="data/images/2024-03-15 162803.png">
 
 9. ordersテーブルを確認
 
@@ -1371,7 +1370,7 @@ psql -h localhost -p 5437 -U postgres -d store_4316
 select * from order_system.orders;
 ```
 
-<img src="img\2024-03-15 162739.png">
+<img src="data/images/2024-03-15 162739.png">
 
 ## 5. CRUD処理
 
@@ -1697,7 +1696,7 @@ WHERE timestamp >= '2023-01-01' AND timestamp < '2023-02-01';
 
 2. Seq Scan -> テーブル全体をスキャンして条件に一致する行を検索
 
-<img src="img\2024-03-17 173426.png">
+<img src="data/images/2024-03-17 173426.png">
 
 ### 6-2. INDEX
 
@@ -1717,4 +1716,4 @@ WHERE timestamp >= '2023-01-01' AND timestamp < '2023-02-01';
 
 3. Index Scan -> インデックスによって行の順番が決定され、条件に一致する行を効率的に検索
 
-<img src="img\2024-03-17 173704.png">
+<img src="data/images/2024-03-17 173704.png">
